@@ -141,11 +141,11 @@ html, body {
 }
 
 .footer-text .brand {
-    font-size: 1rem;
+    font-size: .7rem;
 }
 
 .footer-text .copyright {
-    font-size: 0.85rem;
+    font-size: 0.6rem;
     opacity: 0.85;
 }
 
