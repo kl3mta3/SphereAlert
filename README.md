@@ -1,52 +1,41 @@
 # SphereAlert
 
-SphereAlert is a self-hosted, Dockerized web app that pushes site-wide alert banners to
-your websites by updating a single DNS TXT record. Drop one small script onto each site,
-and from then on you control every banner from one dashboard: pick the affected domains,
-choose a level, type a message, optionally set an end time, and hit send — SphereAlert
-fans the change out to each domain's DNS provider in parallel. Visitors see the banner on
-their next page load. It is the sibling product to [SphereSSL](https://github.com/kl3mta3/SphereSSL):
-same stack, same look, same trust model — your DNS API keys never leave your box, and
-SphereAlert never phones home.
+**Push site-wide alert banners to any number of websites by changing one DNS record.**
+
+SphereAlert is a self-hosted, Dockerized web app for operators who need to put a banner
+on their sites — maintenance windows, incidents, notices — without redeploying anything.
+You manage alerts from one dashboard; SphereAlert writes a TXT record to each domain's
+DNS provider, and a tiny client script on each site reads that record and renders the
+banner. Your DNS API keys never leave your box, and SphereAlert never phones home.
+
+It is the sibling product to [SphereSSL](https://github.com/kl3mta3/SphereSSL) — same
+stack, same conventions, same operator-owned philosophy.
 
 ---
 
 ## How it works
 
-1. SphereAlert writes a TXT record at `alert.<domain>` with a value like
-   `::low:: Scheduled maintenance until 9am CST`.
-2. The `sphere-alert.js` script on each site reads that TXT record via DNS-over-HTTPS on
-   every page load and renders (or hides) a banner accordingly.
-3. When an alert has an end time, a background scheduler rewrites the TXT record to
-   `::none::` when that time arrives. The website itself never tracks time or expiry —
-   it just shows whatever the record currently says.
+1. You run SphereAlert as a container and add your DNS provider credentials.
+2. On each site, you drop in `sphere-alert.js` and one `<script>` tag.
+3. To raise an alert: pick the domains, a level, and a slot, type a message, hit **Send**.
+4. SphereAlert writes a TXT record at `alert.<domain>` (or `alert2`/`alert3`) — a small
+   JSON payload — to every selected domain's provider, in parallel.
+5. Visitors' browsers read that record over DNS-over-HTTPS on each page load and render
+   the banner. A background scheduler clears alerts that have an end time.
 
 ```
-                +---------------------------+
-   operator --> |  SphereAlert  (:7227)     |
-                |  - web UI                 |
-                |  - SQLite (data volume)   |
-                |  - 60s expiry scheduler   |
-                +-------------+-------------+
-                              |  upsert TXT  alert.<domain>
-                              v
-                +---------------------------+
-                |  DNS provider API         |   (Cloudflare, Route53, …)
-                +-------------+-------------+
-                              |  TXT record
-                              v
-   visitor's browser  <--  sphere-alert.js  <--  DNS-over-HTTPS lookup
-        renders banner
+  operator ──> SphereAlert ──> DNS provider API ──> TXT record at alert.<domain>
+   (web UI)    (:7227)                                      │
+                                                            ▼
+                          visitor's browser  <──  sphere-alert.js reads it
+                                renders banner
 ```
 
 ---
 
 ## Quick start
 
-SphereAlert listens on port **7227** inside the container. Map it to whatever you like
-on the host.
-
-### Docker Compose (recommended)
+SphereAlert listens on port **7227** in the container.
 
 ```bash
 git clone https://github.com/kl3mta3/SphereAlert.git
@@ -54,200 +43,149 @@ cd SphereAlert
 docker compose up -d --build
 ```
 
+Then open `http://<host>:7227/`.
+
+`docker-compose.yaml`:
+
 ```yaml
-# docker-compose.yml
 services:
   spherealert:
-    image: spherealert:latest
     build: .
     ports:
       - "7227:7227"
-    volumes:
-      - /var/lib/spherealert:/data
     environment:
-      SPHEREALERT_DATA_DIR: /data
-      SPHEREALERT_LOG_LEVEL: Info
+      - SPHEREALERT_DATA_DIR=/data
+      - SPHEREALERT_LOG_LEVEL=Info
+    volumes:
+      - spherealert-data:/data
     restart: unless-stopped
-    container_name: spherealert
-```
 
-### docker run
-
-```bash
-docker build -t spherealert:latest .
-docker run -d --name spherealert \
-  -p 7227:7227 \
-  -v /var/lib/spherealert:/data \
-  -e SPHEREALERT_DATA_DIR=/data \
-  --restart unless-stopped \
-  spherealert:latest
+volumes:
+  spherealert-data:
 ```
 
 ### Data persistence
 
-The database, the encryption keyfile, and logs live in **`/var/lib/spherealert` on the
-host**, bind-mounted to `/data` in the container. Docker creates that directory on first
-run. Because it is an absolute path outside the repo and outside Docker's volume store,
-it survives **everything** a redeploy can throw at it:
+The database, the encryption keyfile, and logs live in the **named volume
+`spherealert-data`**, mounted at `/data`. It is created automatically and is kept across
+rebuilds and redeploys — Docker (and PaaS platforms like Coolify) preserve named volumes
+declared in the compose file. Don't hardcode `container_name`, and don't use a bind mount
+to a path inside the repo — a redeploy that re-clones the repo would wipe it.
 
-| Operation                          | Survives? |
-|-------------------------------------|-----------|
-| Image rebuild / `up --build`        | yes       |
-| `docker compose down` + `up`        | yes       |
-| `docker compose down -v`            | yes — `-v` removes *volumes*, not bind mounts |
-| `docker volume prune`               | yes — not a volume |
-| Fresh `git clone` / `git clean`     | yes — path is outside the repo |
+> Deploying with **Coolify**: use the *Docker Compose* build pack and point it at
+> `docker-compose.yaml`. The `spherealert-data` volume appears under the app's
+> **Persistent Storage** tab and survives every redeploy.
 
-Operators just run the container and sign in — nothing else to set up. To store the data
-somewhere else, change the left-hand side of the volume line. To back it up, copy
-`/var/lib/spherealert`.
+### Configuration
 
-> A **named volume** or a `./data` bind mount is *not* used on purpose: named volumes are
-> destroyed by `docker compose down -v`, and a `./data` mount lives inside the repo where
-> a re-clone wipes it. An absolute host path avoids both traps.
-
-| Environment variable   | Default  | Purpose                                  |
-|------------------------|----------|------------------------------------------|
-| `SPHEREALERT_DATA_DIR` | `data`   | Directory for the database, keyfile, log |
-| `SPHEREALERT_LOG_LEVEL`| `Info`   | `Info` or `Debug`                        |
-
-### Running without Docker
-
-```bash
-dotnet run --project SphereAlert/SphereAlert.csproj -c Release
-```
+| Environment variable    | Default | Purpose                                     |
+|-------------------------|---------|---------------------------------------------|
+| `SPHEREALERT_DATA_DIR`  | `/data` | Directory for the database, keyfile, logs   |
+| `SPHEREALERT_LOG_LEVEL` | `Info`  | `Info` or `Debug`                           |
 
 ---
 
 ## First login
 
-1. Open `http://<host>:7227/`.
-2. Sign in with the default credentials:
-   - **Username:** `admin`
-   - **Password:** `pass123`
-3. You will be required to set a new password before you can do anything else. The new
-   password must be 8–64 characters and include an uppercase letter, a lowercase letter,
-   and a number.
+Open the app and sign in with the seed credentials:
 
-That's it — there is one admin account, no public sign-up, no other roles.
+- **Username:** `admin`
+- **Password:** `pass123`
+
+You'll be required to set a **new username and password** before you can do anything
+else. There is one admin account — no sign-up, no other roles.
 
 ---
 
-## Adding a DNS provider
+## Using SphereAlert
 
-**Providers** (in the sidebar) → fill in the *Add a Provider* form:
+### Add a DNS provider
 
-1. Pick the **provider type** (Cloudflare, AWS Route 53, DigitalOcean, and 11 more).
-2. Give it a **display name** (e.g. "Production Cloudflare").
-3. Paste the **API credentials**. The form shows the expected format for the selected
-   type — most providers use a single token; some use a `key:secret` pair.
-4. Save. Credentials are encrypted with AES-256-GCM before they touch the database.
-5. Use **Test** on the provider row to verify the credentials reach the provider's API.
+**Providers** → fill in the *Add a Provider* form: pick the type, give it a name, paste
+the API credentials (the form shows the expected format per provider). Credentials are
+encrypted with **AES-256-GCM** before they touch the database. Use **Test** to verify
+they reach the provider's API.
 
-Then go to **Domains** → **Refresh domains** next to the provider to import its zones,
-or add a domain manually.
+Supported: Cloudflare, AWS Route 53, DigitalOcean, Hetzner, Namecheap, GoDaddy,
+DNS Made Easy, Porkbun, Gandi, ClouDNS, DreamHost, Vultr, Linode, DuckDNS.
 
----
+### Add domains
 
-## Pushing an alert
+**Domains** → **Refresh** next to a provider to import its zones, or add one by hand.
+The list paginates, with checkboxes for bulk delete and bulk script-install checks.
 
-**New Alert** (in the sidebar):
+### Push an alert
 
-1. Choose a **level**: `info`, `low`, `medium`, `high`, or `critical`.
-2. Type a **message** (up to 240 characters). A live preview shows exactly what the
-   banner — and the JSON TXT record value — will look like.
-3. Set **dismissable** and **force scroll-on-hover** as needed.
-4. Optionally set an **end time**. Leave it blank and the alert stays up until you clear
-   it manually.
-5. Select one or more **domains**, and for each domain pick which **slot** (1, 2, or 3)
-   the banner goes to.
-6. **Send Alert.** SphereAlert writes `alert[N].<domain>` TXT records to every selected
-   domain's provider in parallel and shows you a per-domain result screen — which
-   succeeded, which failed, and why. Failed domains can be retried from that screen.
+**New Alert** → choose a **level** and a **slot**, write a **message** (≤ 240 chars),
+set **dismissable** / **scroll** options, optionally set an **end time**, pick the
+**domains**, and **Send**. A live preview shows the exact banner and TXT value. The
+result screen reports success/failure per domain, with retry for failures.
 
-Manage live alerts under **Active**: edit the message/level/end time, or **Clear Now**
-to remove the banner immediately. Every push, clear, and expiry is recorded under
-**History**.
+Manage live alerts under **Active** (edit, or clear immediately). Every push, clear, and
+expiry is recorded in **History**.
 
----
+### Install the client script
 
-## Installing the script on a site
+The banners only render once `sphere-alert.js` is on the site:
 
-The banners only appear once `sphere-alert.js` is on the site. Two ways:
-
-### Manual
-
-1. Download the script from your running container: `http://<host>:7227/js/sphere-alert.js`
-2. Place it in a `js/` folder at the root of your site (`js/sphere-alert.js`).
-3. Add this tag inside `<head>` (or `<body>`):
-
-   ```html
-   <script src="/js/sphere-alert.js" defer></script>
-   ```
-
-### Zip injection (Tools → Install)
-
-Upload your site's build output as a `.zip`. SphereAlert adds the script tag to every
-HTML file that doesn't already have it, drops `sphere-alert.js` into a `js/` folder
-(creating it if absent), and hands back a repackaged `.zip` for you to re-upload to your
-host. There is no FTP/SSH integration by design — you stay in control of the deploy.
+- **Manual:** download it from `http://<host>:7227/js/sphere-alert.js`, place it at
+  `js/sphere-alert.js` on your site, and add
+  `<script src="/js/sphere-alert.js" defer></script>` inside `<head>`.
+- **Zip injection** (*Install* page): upload your site's build `.zip`; SphereAlert adds
+  the tag to every HTML file and drops the script into a `js/` folder, then hands back a
+  repackaged `.zip`.
 
 ---
 
-## Architecture
+## The TXT record format
 
-```
-SphereAlert/
-  Program.cs / Services/Config/StartUp.cs   bootstrap + DI + Kestrel (:7227)
-  Controllers/ScriptController.cs           GET /js/sphere-alert.js, GET /healthz
-  Pages/                                    Razor Pages UI (login, dashboard, compose,
-                                            active, history, domains, providers, install)
-  Data/Database/DatabaseManager.cs          SQLite schema + versioned migration
-  Data/Repositories/                        Users, Providers, Domains, Alerts, History
-  Models/                                   plain DTO/record types
-  Services/Security/                        PasswordService (PBKDF2), CryptoService (AES-GCM)
-  Services/APISupportedProviders/           IAlertDnsProvider + 14 provider adapters
-  Services/Alerts/AlertService.cs           push / re-push / clear / expire orchestration
-  Services/Scheduler/AlertSchedulerService  60s background worker that expires alerts
-  Services/Scripts/                         serve script, zip injection, install detection
-  Services/Domains/DomainImportService.cs   import zones from a provider
-```
-
-- **Stack:** ASP.NET Core 8 / C#, Razor Pages, embedded SQLite, Bootstrap-based UI.
-- **Auth:** single admin role, session-based, forced password change on first login.
-- **Storage:** one SQLite file in the data volume; schema is versioned with a startup
-  migration step.
-- **DNS providers:** Cloudflare, AWS Route 53, DigitalOcean, Hetzner, Namecheap, GoDaddy,
-  DNS Made Easy, Porkbun, Gandi, ClouDNS, DreamHost, Vultr, Linode, DuckDNS — all adapted
-  from SphereSSL's DNS-01 challenge writers to upsert arbitrary TXT values at
-  `alert.<domain>`.
-- **Health:** `GET /healthz` returns `ok`; the container `HEALTHCHECK` polls it.
-
-### Slots and the TXT record format
-
-Each domain has **three alert slots**, read from `alert.<domain>`, `alert2.<domain>`,
-and `alert3.<domain>` — they render stacked, top to bottom. When you push an alert you
-pick a slot per domain.
-
-`sphere-alert.js` expects each slot's TXT record to be a JSON object:
+Each domain has **three slots** — `alert`, `alert2`, `alert3` — rendered stacked. Each
+slot's TXT record is a JSON object:
 
 ```json
 {"l":2,"m":"Maintenance Sat 7am-9am","d":1,"s":0}
 ```
 
-| Field | Required | Meaning                                                            |
-|-------|----------|--------------------------------------------------------------------|
-| `l`   | yes      | level — `0` info, `1` low, `2` medium, `3` high, `4` critical      |
-| `m`   | yes      | message text (≤ 240 chars)                                         |
-| `d`   | no       | dismissable — `1` yes (default), `0` no                            |
-| `s`   | no       | force scroll-on-hover — `1` yes, `0` auto (default)                |
+| Field | Required | Meaning                                                       |
+|-------|----------|---------------------------------------------------------------|
+| `l`   | yes      | level — `0` info, `1` low, `2` medium, `3` high, `4` critical |
+| `m`   | yes      | message text (≤ 240 chars)                                    |
+| `d`   | no       | dismissable — `1` yes (default), `0` no                       |
+| `s`   | no       | force scroll-on-hover — `1` yes, `0` auto (default)           |
 
-Any value that is not valid JSON renders no banner. Clearing or expiring an alert
-replaces the record with a human-readable note — `Cleared <timestamp> UTC — previous:
-<message>` — so the record doubles as an audit trail. SphereAlert tracks the current
-value of every slot; open a domain to see what is live in each one.
+Anything that isn't valid JSON renders no banner. Clearing or expiring an alert replaces
+the record with a `Cleared <timestamp> — previous: <message>` note, so the record itself
+is an audit trail.
 
 ---
 
-Built by Kenneth Lasyone ([kl3mta3](https://github.com/kl3mta3)). Part of the Sphere
-product family. Self-hosted, privacy-first, operator-owned.
+## Architecture
+
+- **Stack:** ASP.NET Core 8 / C#, Razor Pages, embedded SQLite, Docker.
+- **Auth:** single admin, session-based, forced username/password change on first login.
+- **Security:** passwords hashed with PBKDF2-SHA256; provider credentials encrypted at
+  rest with AES-256-GCM (the key lives in a keyfile beside the database).
+- **Scheduler:** a background worker expires timed alerts every 60 seconds.
+- **Endpoints:** `GET /js/sphere-alert.js` (the client script), `GET /healthz`.
+
+```
+SphereAlert/
+  Controllers/        script + health endpoints
+  Pages/              Razor Pages UI
+  Data/               SQLite schema + repositories
+  Models/             record/DTO types
+  Services/
+    APISupportedProviders/   IAlertDnsProvider + 14 provider adapters
+    Alerts/                  push / clear / expire orchestration
+    Scheduler/               60s expiry worker
+    Scripts/                 serve script, zip injection, install detection
+    Security/                password hashing, credential encryption
+```
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Kenneth Lasyone
+
+Part of the Sphere family of self-hosted, operator-owned infrastructure tools.
