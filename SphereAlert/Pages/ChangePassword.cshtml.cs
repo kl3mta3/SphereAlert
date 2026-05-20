@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using SphereAlert.Data.Repositories;
@@ -15,6 +16,7 @@ namespace SphereAlert.Pages
             _userRepository = userRepository;
         }
 
+        [BindProperty] public string NewUsername { get; set; } = string.Empty;
         [BindProperty] public string CurrentPassword { get; set; } = string.Empty;
         [BindProperty] public string NewPassword { get; set; } = string.Empty;
         [BindProperty] public string ConfirmPassword { get; set; } = string.Empty;
@@ -28,6 +30,7 @@ namespace SphereAlert.Pages
             if (redirect != null) return redirect;
 
             Forced = CurrentUser!.MustChangePassword;
+            NewUsername = CurrentUser.Username;
             return Page();
         }
 
@@ -45,6 +48,14 @@ namespace SphereAlert.Pages
             if (!PasswordService.VerifyPassword(CurrentPassword, user.PasswordHash))
             {
                 Error = "Current password is incorrect.";
+                return Page();
+            }
+
+            NewUsername = (NewUsername ?? string.Empty).Trim();
+            string? usernameError = await ValidateUsernameAsync(NewUsername, user.UserId);
+            if (usernameError != null)
+            {
+                Error = usernameError;
                 return Page();
             }
 
@@ -67,19 +78,34 @@ namespace SphereAlert.Pages
                 return Page();
             }
 
-            await _userRepository.UpdatePasswordAsync(user.UserId, PasswordService.HashPassword(NewPassword), false);
+            await _userRepository.UpdateAccountAsync(
+                user.UserId, NewUsername, PasswordService.HashPassword(NewPassword));
 
-            // Refresh the session so the forced-change gate lifts.
+            // Refresh the session: the forced-change gate lifts and the username may have changed.
             var session = new UserSession
             {
                 UserId = user.UserId,
-                Username = user.Username,
+                Username = NewUsername,
                 MustChangePassword = false
             };
             HttpContext.Session.SetString(SessionKey, JsonConvert.SerializeObject(session));
 
-            TempData["Flash"] = "Password changed.";
+            TempData["Flash"] = "Account updated.";
             return RedirectToPage("/Dashboard");
+        }
+
+        private async Task<string?> ValidateUsernameAsync(string username, string currentUserId)
+        {
+            if (username.Length < 3 || username.Length > 32)
+                return "Username must be 3–32 characters long.";
+            if (!Regex.IsMatch(username, "^[A-Za-z0-9._-]+$"))
+                return "Username may only contain letters, numbers, and . _ - characters.";
+
+            var existing = await _userRepository.GetUserByUsernameAsync(username);
+            if (existing != null && existing.UserId != currentUserId)
+                return "That username is already taken.";
+
+            return null;
         }
 
         private static string? ValidateStrength(string password)

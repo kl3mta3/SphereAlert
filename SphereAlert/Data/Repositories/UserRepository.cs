@@ -49,15 +49,18 @@ namespace SphereAlert.Data.Repositories
             await command.ExecuteNonQueryAsync();
         }
 
-        public async Task UpdatePasswordAsync(string userId, string passwordHash, bool mustChangePassword)
+        /// <summary>Updates the username and password together, and clears the
+        /// forced-change flag. Used by the change-password / first-run setup page.</summary>
+        public async Task UpdateAccountAsync(string userId, string username, string passwordHash)
         {
             using var connection = await DatabaseManager.OpenConnectionAsync();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                UPDATE Users SET PasswordHash = @passwordHash, MustChangePassword = @mustChange
+                UPDATE Users
+                SET Username = @username, PasswordHash = @passwordHash, MustChangePassword = 0
                 WHERE UserId = @userId;";
+            command.Parameters.AddWithValue("@username", username);
             command.Parameters.AddWithValue("@passwordHash", passwordHash);
-            command.Parameters.AddWithValue("@mustChange", mustChangePassword ? 1 : 0);
             command.Parameters.AddWithValue("@userId", userId);
             await command.ExecuteNonQueryAsync();
         }
