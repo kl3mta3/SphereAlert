@@ -35,6 +35,11 @@ namespace SphereAlert.Pages
         [BindProperty] public string? EditAlertId { get; set; }
 
         public List<DomainRecord> AllDomains { get; private set; } = new();
+
+        /// <summary>Domains whose script install was verified — the only ones offered for a new alert.</summary>
+        public IEnumerable<DomainRecord> InstalledDomains
+            => AllDomains.Where(d => d.ScriptStatus == "installed");
+
         public bool IsEdit => !string.IsNullOrEmpty(EditAlertId);
         public string? Error { get; private set; }
 

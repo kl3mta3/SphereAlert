@@ -105,14 +105,28 @@
                 }
             </ul>
         }
+        else if (!Model.InstalledDomains.Any())
+        {
+            <div class="notice notice-info" style="margin:0;">
+                No domains have a verified <code>sphere-alert.js</code> install yet. Open
+                <a href="/Domains">Domains</a> and run <strong>Check script</strong> (or select domains
+                and use <strong>Check selected</strong>) — only domains where the script was detected
+                can receive an alert.
+            </div>
+        }
         else
         {
-            <p class="muted text-small">The alert is pushed to every domain below, at the slot chosen above.</p>
+            <p class="muted text-small">
+                Only domains with a verified script install are listed. The alert goes to every domain
+                below, at the slot chosen above.
+            </p>
+            <input type="search" id="domainSearch" class="form-control" style="max-width:360px; margin-bottom:10px;"
+                   placeholder="Filter domains…" autocomplete="off" />
             <div id="domainRows">
                 <div class="domain-row" style="display:flex; gap:8px; margin-bottom:8px;">
-                    <select name="SelectedDomainIds" class="form-select" style="max-width:420px;">
+                    <select name="SelectedDomainIds" class="form-select domain-select" style="max-width:420px;">
                         <option value="">— select a domain —</option>
-                        @foreach (var domain in Model.AllDomains)
+                        @foreach (var domain in Model.InstalledDomains)
                         {
                             <option value="@domain.DomainId">@domain.Name (@domain.ProviderDisplayName)</option>
                         }
@@ -126,9 +140,9 @@
 
             <template id="domainRowTemplate">
                 <div class="domain-row" style="display:flex; gap:8px; margin-bottom:8px;">
-                    <select name="SelectedDomainIds" class="form-select" style="max-width:420px;">
+                    <select name="SelectedDomainIds" class="form-select domain-select" style="max-width:420px;">
                         <option value="">— select a domain —</option>
-                        @foreach (var domain in Model.AllDomains)
+                        @foreach (var domain in Model.InstalledDomains)
                         {
                             <option value="@domain.DomainId">@domain.Name (@domain.ProviderDisplayName)</option>
                         }
@@ -194,6 +208,7 @@
         const tpl = document.getElementById('domainRowTemplate');
         if (!tpl) return;
         document.getElementById('domainRows').appendChild(tpl.content.cloneNode(true));
+        filterDomainOptions(); // new row honors the current filter
     }
     function removeDomainRow(btn) {
         const rows = document.querySelectorAll('#domainRows .domain-row');
@@ -203,5 +218,18 @@
         }
         btn.closest('.domain-row').remove();
     }
+
+    // Domain filter — hides non-matching options in every domain dropdown as you type
+    const domainSearch = document.getElementById('domainSearch');
+    function filterDomainOptions() {
+        const t = domainSearch ? domainSearch.value.trim().toLowerCase() : '';
+        document.querySelectorAll('.domain-select').forEach(sel => {
+            Array.from(sel.options).forEach(opt => {
+                if (opt.value === '') return; // always keep the placeholder
+                opt.hidden = t !== '' && !opt.textContent.toLowerCase().includes(t);
+            });
+        });
+    }
+    if (domainSearch) domainSearch.addEventListener('input', filterDomainOptions);
 </script>
 }

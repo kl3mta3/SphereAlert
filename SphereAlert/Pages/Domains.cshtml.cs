@@ -8,8 +8,6 @@ namespace SphereAlert.Pages
 {
     public class DomainsModel : AppPageModel
     {
-        private const int PageSize = 10;
-
         private readonly DomainRepository _domains;
         private readonly ProviderRepository _providers;
         private readonly DomainImportService _importService;
@@ -26,34 +24,30 @@ namespace SphereAlert.Pages
         }
 
         public List<DomainRecord> AllDomains { get; private set; } = new();
-        public List<DomainRecord> PageDomains { get; private set; } = new();
         public List<DnsProviderRecord> Providers { get; private set; } = new();
         public DomainRecord? EditTarget { get; private set; }
         public string? Error { get; private set; }
 
-        public int PageNumber { get; private set; } = 1;
-        public int TotalPages { get; private set; } = 1;
         public int TotalDomains => AllDomains.Count;
 
         [BindProperty] public string InputDomainId { get; set; } = string.Empty;
         [BindProperty] public string InputName { get; set; } = string.Empty;
         [BindProperty] public string InputProviderId { get; set; } = string.Empty;
 
-        private async Task LoadAsync(int page)
+        // Search and pagination of the table are handled client-side so the
+        // search box can filter across every domain, not just one page.
+        private async Task LoadAsync()
         {
             AllDomains = await _domains.GetAllWithDetailAsync();
             Providers = await _providers.GetAllAsync();
-            TotalPages = Math.Max(1, (int)Math.Ceiling(AllDomains.Count / (double)PageSize));
-            PageNumber = Math.Clamp(page, 1, TotalPages);
-            PageDomains = AllDomains.Skip((PageNumber - 1) * PageSize).Take(PageSize).ToList();
         }
 
-        public async Task<IActionResult> OnGetAsync(string? edit, int pageNumber = 1)
+        public async Task<IActionResult> OnGetAsync(string? edit)
         {
             var redirect = RequireAuth();
             if (redirect != null) return redirect;
 
-            await LoadAsync(pageNumber);
+            await LoadAsync();
             if (!string.IsNullOrEmpty(edit))
             {
                 EditTarget = AllDomains.FirstOrDefault(d => d.DomainId == edit);
@@ -88,7 +82,7 @@ namespace SphereAlert.Pages
 
             if (string.IsNullOrWhiteSpace(InputName) || string.IsNullOrWhiteSpace(InputProviderId))
             {
-                await LoadAsync(1);
+                await LoadAsync();
                 Error = "A domain name and a provider are required.";
                 return Page();
             }
@@ -117,7 +111,7 @@ namespace SphereAlert.Pages
 
             if (string.IsNullOrWhiteSpace(InputName) || string.IsNullOrWhiteSpace(InputProviderId))
             {
-                await LoadAsync(1);
+                await LoadAsync();
                 EditTarget = existing;
                 Error = "A domain name and a provider are required.";
                 return Page();
