@@ -18,7 +18,7 @@ namespace SphereAlert.Controllers
         }
 
         /// <summary>The drop-in client script. Operators grab this straight from their container.</summary>
-        [HttpGet("/sphere-alert.js")]
+        [HttpGet("/js/sphere-alert.js")]
         public IActionResult GetScript()
         {
             Response.Headers.CacheControl = "public, max-age=3600";

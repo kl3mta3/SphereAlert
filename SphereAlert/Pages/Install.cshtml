@@ -18,8 +18,9 @@
     <h2><i class="bi bi-file-earmark-zip"></i> Zip Injection</h2>
     <p class="muted text-small">
         Upload your site's build output (a .zip). SphereAlert adds the script tag to every
-        HTML file that doesn't already have it, drops <code>sphere-alert.js</code> into the
-        archive root, and gives you a repackaged .zip to re-upload to your host.
+        HTML file that doesn't already have it, drops <code>sphere-alert.js</code> into a
+        <code>js/</code> folder (created if it doesn't exist), and gives you a repackaged
+        .zip to re-upload to your host.
     </p>
     <form method="post" enctype="multipart/form-data">
         <div class="form-row">
@@ -35,12 +36,13 @@
     <p class="muted text-small">Prefer to do it by hand? Two steps on each site:</p>
     <ol class="muted text-small">
         <li>
-            Download <a href="/sphere-alert.js" download>sphere-alert.js</a> and place it at the root of your site.
+            Download <a href="/js/sphere-alert.js" download>sphere-alert.js</a> and place it
+            in a <code>js/</code> folder at the root of your site (<code>js/sphere-alert.js</code>).
         </li>
         <li>
             Add this tag inside <code>&lt;head&gt;</code> (or <code>&lt;body&gt;</code>):
             <div style="margin-top:8px;">
-                <code class="txt-value">&lt;script src="/sphere-alert.js" defer&gt;&lt;/script&gt;</code>
+                <code class="txt-value">&lt;script src="/js/sphere-alert.js" defer&gt;&lt;/script&gt;</code>
             </div>
         </li>
     </ol>

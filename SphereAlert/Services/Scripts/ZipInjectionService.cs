@@ -17,7 +17,9 @@ namespace SphereAlert.Services.Scripts
     /// </summary>
     public class ZipInjectionService
     {
-        private const string ScriptTag = "<script src=\"/sphere-alert.js\" defer></script>";
+        /// <summary>Where the script is placed inside the archive (the js/ folder is created if absent).</summary>
+        private const string ScriptZipPath = "js/sphere-alert.js";
+        private const string ScriptTag = "<script src=\"/js/sphere-alert.js\" defer></script>";
 
         private readonly ScriptService _scriptService;
 
@@ -68,9 +70,10 @@ namespace SphereAlert.Services.Scripts
                     result.HtmlFilesInjected++;
                 }
 
-                if (archive.GetEntry(ScriptService.FileName) == null)
+                // Place the script in a js/ folder, creating it if the archive lacks one.
+                if (archive.GetEntry(ScriptZipPath) == null)
                 {
-                    var scriptEntry = archive.CreateEntry(ScriptService.FileName, CompressionLevel.Optimal);
+                    var scriptEntry = archive.CreateEntry(ScriptZipPath, CompressionLevel.Optimal);
                     using var writer = new StreamWriter(scriptEntry.Open());
                     await writer.WriteAsync(_scriptService.Content);
                 }

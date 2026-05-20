@@ -330,14 +330,17 @@
 
     const wrap = document.createElement('div');
     wrap.id = 'sphere-alert-stack';
-    wrap.style.cssText = `
-      position: relative !important;
-      z-index: ${cfg.zIndex} !important;
-      display: block !important;
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    `;
+	wrap.style.cssText = `
+	  position: fixed !important;
+	  top: 0 !important;
+	  left: 0 !important;
+	  right: 0 !important;
+	  z-index: ${cfg.zIndex} !important;
+	  display: block !important;
+	  width: 100% !important;
+	  margin: 0 !important;
+	  padding: 0 !important;
+	`;
     for (const banner of banners) wrap.appendChild(banner);
 
     document.body.insertBefore(wrap, document.body.firstChild);

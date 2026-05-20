@@ -10,8 +10,8 @@
     <h1>@(Model.IsEdit ? "Edit Alert" : "Push a New Alert")</h1>
     <p>
         @(Model.IsEdit
-            ? "Update the level, message, options, or end time. Changes are re-pushed to the alert's domains and slots."
-            : "Select domains and a slot for each, pick a level, write a message, and send it to every site at once.")
+            ? "Update the level, slot, message, options, or end time. Changes are re-pushed to the alert's domains."
+            : "Pick a level and slot, write a message, choose the domains, and send.")
     </p>
 </div>
 
@@ -34,14 +34,29 @@
     <div class="card">
         <h2><i class="bi bi-sliders"></i> Alert</h2>
 
-        <div class="form-row">
-            <label for="Level">Level</label>
-            <select id="Level" asp-for="Level" class="form-select" style="max-width:240px;">
-                @foreach (var lvl in AlertLevels.All)
+        <div style="display:flex; gap:18px; flex-wrap:wrap;">
+            <div class="form-row" style="flex:1; min-width:200px;">
+                <label for="Level">Level</label>
+                <select id="Level" asp-for="Level" class="form-select">
+                    @foreach (var lvl in AlertLevels.All)
+                    {
+                        <option value="@lvl" selected="@(Model.Level == lvl)">@PageHelpers.LevelLabel(lvl)</option>
+                    }
+                </select>
+            </div>
+            <div class="form-row" style="flex:1; min-width:200px;">
+                <label for="Slot">Slot</label>
+                <select id="Slot" asp-for="Slot" class="form-select" disabled="@Model.IsEdit">
+                    @for (int slot = 1; slot <= AlertLevels.SlotCount; slot++)
+                    {
+                        <option value="@slot" selected="@(Model.Slot == slot)">@AlertLevels.SlotLabel(slot)</option>
+                    }
+                </select>
+                @if (Model.IsEdit)
                 {
-                    <option value="@lvl" selected="@(Model.Level == lvl)">@PageHelpers.LevelLabel(lvl)</option>
+                    <input type="hidden" asp-for="Slot" />
                 }
-            </select>
+            </div>
         </div>
 
         <div class="form-row">
@@ -78,64 +93,49 @@
     </div>
 
     <div class="card">
-        <h2><i class="bi bi-globe2"></i> Domains &amp; Slots</h2>
-        <p class="muted text-small">
-            Each domain has three alert slots — <code>alert</code>, <code>alert2</code>, <code>alert3</code> —
-            that render stacked on the page. Pick which slot each domain's banner goes to.
-        </p>
+        <h2><i class="bi bi-globe2"></i> Domains</h2>
 
         @if (Model.IsEdit)
         {
-            <p class="muted text-small">Editing keeps the alert's original domains and slots.</p>
-            <div class="pick-list">
+            <p class="muted text-small">Editing keeps the alert's original domains. To target different domains, push a new alert.</p>
+            <ul class="muted">
                 @foreach (var domain in Model.AllDomains.Where(d => Model.SelectedDomainIds.Contains(d.DomainId)))
                 {
-                    var slot = Model.EditSlots.GetValueOrDefault(domain.DomainId, 1);
-                    <div class="pick-item">
-                        <input type="checkbox" name="SelectedDomainIds" value="@domain.DomainId" checked disabled />
-                        <label>@domain.Name <span class="sub">· @domain.ProviderDisplayName</span></label>
-                        <span class="badge-pill badge-unknown">@AlertLevels.SlotLabel(slot)</span>
-                    </div>
+                    <li>@domain.Name <span class="text-small">· @AlertLevels.SlotLabel(Model.Slot)</span></li>
                 }
-                @foreach (var domain in Model.SelectedDomainIds)
-                {
-                    <input type="hidden" name="SelectedDomainIds" value="@domain" />
-                }
-            </div>
+            </ul>
         }
         else
         {
-            <div class="toolbar">
-                <input type="search" id="domainSearch" class="form-control" placeholder="Filter domains…" />
-                <button type="button" class="btn btn-sm btn-secondary" onclick="pickAll(true)">Select all</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="pickAll(false)">Clear</button>
-                <span class="spacer"></span>
-                <span class="muted text-small"><span id="selCount">0</span> selected</span>
-            </div>
-            <div class="pick-list" id="domainList">
-                @foreach (var domain in Model.AllDomains)
-                {
-                    <div class="pick-item" data-name="@domain.Name.ToLowerInvariant()">
-                        <input type="checkbox" name="SelectedDomainIds" value="@domain.DomainId"
-                               id="dom_@domain.DomainId" class="domain-check"
-                               checked="@Model.SelectedDomainIds.Contains(domain.DomainId)" />
-                        <label for="dom_@domain.DomainId">
-                            @domain.Name
-                            <span class="sub">· @domain.ProviderDisplayName</span>
-                        </label>
-                        @if (!string.IsNullOrEmpty(domain.ActiveAlertLevel))
+            <p class="muted text-small">The alert is pushed to every domain below, at the slot chosen above.</p>
+            <div id="domainRows">
+                <div class="domain-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                    <select name="SelectedDomainIds" class="form-select" style="max-width:420px;">
+                        <option value="">— select a domain —</option>
+                        @foreach (var domain in Model.AllDomains)
                         {
-                            <span class="badge-pill @PageHelpers.LevelClass(domain.ActiveAlertLevel)">alert live</span>
+                            <option value="@domain.DomainId">@domain.Name (@domain.ProviderDisplayName)</option>
                         }
-                        <select name="SlotSelections" class="form-select" style="max-width:170px;">
-                            @for (int slot = 1; slot <= AlertLevels.SlotCount; slot++)
-                            {
-                                <option value="@domain.DomainId:@slot">@AlertLevels.SlotLabel(slot)</option>
-                            }
-                        </select>
-                    </div>
-                }
+                    </select>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="removeDomainRow(this)" title="Remove">&times;</button>
+                </div>
             </div>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="addDomainRow()">
+                <i class="bi bi-plus-lg"></i> Add another domain
+            </button>
+
+            <template id="domainRowTemplate">
+                <div class="domain-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                    <select name="SelectedDomainIds" class="form-select" style="max-width:420px;">
+                        <option value="">— select a domain —</option>
+                        @foreach (var domain in Model.AllDomains)
+                        {
+                            <option value="@domain.DomainId">@domain.Name (@domain.ProviderDisplayName)</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="removeDomainRow(this)" title="Remove">&times;</button>
+                </div>
+            </template>
         }
     </div>
 
@@ -189,29 +189,19 @@
     if (scrollInput) scrollInput.addEventListener('change', refresh);
     refresh();
 
-    // Domain picker (new-alert mode only)
-    const search = document.getElementById('domainSearch');
-    if (search) {
-        search.addEventListener('input', function () {
-            const q = this.value.toLowerCase();
-            document.querySelectorAll('#domainList .pick-item').forEach(item => {
-                item.style.display = item.dataset.name.includes(q) ? '' : 'none';
-            });
-        });
+    // Domain rows — add/remove dropdowns
+    function addDomainRow() {
+        const tpl = document.getElementById('domainRowTemplate');
+        if (!tpl) return;
+        document.getElementById('domainRows').appendChild(tpl.content.cloneNode(true));
     }
-    function pickAll(state) {
-        document.querySelectorAll('#domainList .pick-item').forEach(item => {
-            if (item.style.display === 'none') return;
-            item.querySelector('.domain-check').checked = state;
-        });
-        updateCount();
+    function removeDomainRow(btn) {
+        const rows = document.querySelectorAll('#domainRows .domain-row');
+        if (rows.length <= 1) {
+            btn.closest('.domain-row').querySelector('select').value = '';
+            return;
+        }
+        btn.closest('.domain-row').remove();
     }
-    function updateCount() {
-        const sel = document.querySelectorAll('.domain-check:checked').length;
-        const el = document.getElementById('selCount');
-        if (el) el.textContent = sel;
-    }
-    document.querySelectorAll('.domain-check').forEach(c => c.addEventListener('change', updateCount));
-    updateCount();
 </script>
 }

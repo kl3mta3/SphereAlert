@@ -19,28 +19,41 @@ namespace SphereAlert.Services.Scripts
             _logger = logger;
         }
 
+        // Where the script may live. The documented location is /js/sphere-alert.js;
+        // the root path is checked as a fallback for older installs.
+        private static readonly string[] CandidatePaths = { "js/sphere-alert.js", "sphere-alert.js" };
+
         /// <summary>Returns "installed", "missing", or "unknown".</summary>
         public async Task<string> DetectAsync(string domain)
         {
-            try
-            {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("SphereAlert-ScriptDetector/1.0");
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("SphereAlert-ScriptDetector/1.0");
 
-                var response = await client.GetAsync($"https://{domain}/{ScriptService.FileName}");
-                if (!response.IsSuccessStatusCode)
-                    return "missing";
+            bool siteResponded = false;
 
-                var body = await response.Content.ReadAsStringAsync();
-                return body.Contains(Signature, StringComparison.OrdinalIgnoreCase)
-                    ? "installed"
-                    : "missing";
-            }
-            catch (Exception ex)
+            foreach (var path in CandidatePaths)
             {
-                _ = _logger.Debug($"Script detection for {domain} was inconclusive: {ex.Message}");
-                return "unknown";
+                try
+                {
+                    var response = await client.GetAsync($"https://{domain}/{path}");
+                    siteResponded = true; // The server answered — even a 404 counts.
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var body = await response.Content.ReadAsStringAsync();
+                        if (body.Contains(Signature, StringComparison.OrdinalIgnoreCase))
+                            return "installed";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _ = _logger.Debug($"Script detection for {domain}/{path} was inconclusive: {ex.Message}");
+                }
             }
+
+            // The site answered but the script was not found anywhere → missing.
+            // The site could not be reached at all → unknown (never block).
+            return siteResponded ? "missing" : "unknown";
         }
     }
 }
