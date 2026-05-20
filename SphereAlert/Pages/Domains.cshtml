@@ -77,78 +77,137 @@
 </div>
 
 <div class="card">
-    <h2><i class="bi bi-globe2"></i> All Domains (@Model.Domains.Count)</h2>
-    <table class="data-table" id="domainTable">
-        <thead>
-            <tr>
-                <th onclick="sortTable(0)">Domain</th>
-                <th onclick="sortTable(1)">Provider</th>
-                <th onclick="sortTable(2)">Status</th>
-                <th onclick="sortTable(3)">Script</th>
-                <th onclick="sortTable(4)">Active alert</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        @if (Model.Domains.Count == 0)
+    <h2><i class="bi bi-globe2"></i> All Domains (@Model.TotalDomains)</h2>
+
+    @if (Model.TotalDomains == 0)
+    {
+        <p class="muted">No domains yet. Import them from a provider or add one manually.</p>
+    }
+    else
+    {
+        <form method="post">
+            <div class="toolbar">
+                <button type="submit" asp-page-handler="CheckSelected" class="btn btn-sm btn-ghost">
+                    <i class="bi bi-search"></i> Check selected
+                </button>
+                <button type="submit" asp-page-handler="DeleteSelected" class="btn btn-sm btn-danger"
+                        onclick="return confirmBulkDelete()">
+                    <i class="bi bi-trash"></i> Delete selected
+                </button>
+                <span class="muted text-small"><span id="selCount">0</span> selected</span>
+            </div>
+
+            <div style="overflow-x:auto;">
+            <table class="data-table" id="domainTable">
+                <thead>
+                    <tr>
+                        <th style="width:34px;"><input type="checkbox" id="selectAll" title="Select all on this page" /></th>
+                        <th>Domain</th>
+                        <th>Provider</th>
+                        <th>Status</th>
+                        <th>Script</th>
+                        <th>Active alert</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var domain in Model.PageDomains)
+                {
+                    <tr>
+                        <td><input type="checkbox" name="selectedDomainIds" value="@domain.DomainId" class="row-check" /></td>
+                        <td><a href="/Domain?domainId=@domain.DomainId"><strong>@domain.Name</strong></a></td>
+                        <td>@domain.ProviderDisplayName</td>
+                        <td><span class="badge-pill @PageHelpers.StatusBadge(domain.Status)">@domain.Status</span></td>
+                        <td><span class="badge-pill @PageHelpers.StatusBadge(domain.ScriptStatus)">@domain.ScriptStatus</span></td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(domain.ActiveAlertLevel))
+                            {
+                                <span class="badge-pill @PageHelpers.LevelClass(domain.ActiveAlertLevel)">@PageHelpers.LevelLabel(domain.ActiveAlertLevel)</span>
+                            }
+                            else
+                            {
+                                <span class="muted">none</span>
+                            }
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                <button type="submit" asp-page-handler="Detect" name="domainId" value="@domain.DomainId"
+                                        class="btn btn-sm btn-ghost" title="Check whether sphere-alert.js is installed">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                <a href="/Domains?edit=@domain.DomainId" class="btn btn-sm btn-ghost" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="submit" asp-page-handler="Delete" name="domainId" value="@domain.DomainId"
+                                        class="btn btn-sm btn-danger" title="Delete"
+                                        onclick="return confirm('Remove @domain.Name from SphereAlert?');">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+            </div>
+        </form>
+
+        @if (Model.TotalPages > 1)
         {
-            <tr><td colspan="6" class="empty">No domains yet. Import them from a provider or add one manually.</td></tr>
+            <div class="toolbar" style="margin-top:14px; justify-content:center;">
+                @if (Model.PageNumber > 1)
+                {
+                    <a href="/Domains?pageNumber=@(Model.PageNumber - 1)" class="btn btn-sm btn-secondary">
+                        <i class="bi bi-chevron-left"></i> Previous
+                    </a>
+                }
+                else
+                {
+                    <span class="btn btn-sm btn-secondary" style="opacity:.4;"><i class="bi bi-chevron-left"></i> Previous</span>
+                }
+                <span class="muted text-small">Page @Model.PageNumber of @Model.TotalPages</span>
+                @if (Model.PageNumber < Model.TotalPages)
+                {
+                    <a href="/Domains?pageNumber=@(Model.PageNumber + 1)" class="btn btn-sm btn-secondary">
+                        Next <i class="bi bi-chevron-right"></i>
+                    </a>
+                }
+                else
+                {
+                    <span class="btn btn-sm btn-secondary" style="opacity:.4;">Next <i class="bi bi-chevron-right"></i></span>
+                }
+            </div>
         }
-        else
-        {
-            @foreach (var domain in Model.Domains)
-            {
-                <tr>
-                    <td><a href="/Domain?domainId=@domain.DomainId"><strong>@domain.Name</strong></a></td>
-                    <td>@domain.ProviderDisplayName</td>
-                    <td><span class="badge-pill @PageHelpers.StatusBadge(domain.Status)">@domain.Status</span></td>
-                    <td><span class="badge-pill @PageHelpers.StatusBadge(domain.ScriptStatus)">@domain.ScriptStatus</span></td>
-                    <td>
-                        @if (!string.IsNullOrEmpty(domain.ActiveAlertLevel))
-                        {
-                            <span class="badge-pill @PageHelpers.LevelClass(domain.ActiveAlertLevel)">@PageHelpers.LevelLabel(domain.ActiveAlertLevel)</span>
-                        }
-                        else
-                        {
-                            <span class="muted">none</span>
-                        }
-                    </td>
-                    <td>
-                        <div class="btn-row">
-                            <form method="post" asp-page-handler="Detect" style="display:inline;">
-                                <input type="hidden" name="domainId" value="@domain.DomainId" />
-                                <button type="submit" class="btn btn-sm btn-ghost" title="Check whether sphere-alert.js is installed">Check script</button>
-                            </form>
-                            <a href="/Domains?edit=@domain.DomainId" class="btn btn-sm btn-ghost">Edit</a>
-                            <form method="post" asp-page-handler="Delete" style="display:inline;"
-                                  onsubmit="return confirm('Remove @domain.Name from SphereAlert?');">
-                                <input type="hidden" name="domainId" value="@domain.DomainId" />
-                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-            }
-        }
-        </tbody>
-    </table>
+    }
 </div>
 
 @section Scripts {
 <script>
-    let sortCol = -1, sortDir = 1;
-    function sortTable(col) {
-        const tbody = document.querySelector('#domainTable tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => !r.querySelector('.empty'));
-        if (rows.length === 0) return;
-        sortDir = (sortCol === col) ? -sortDir : 1;
-        sortCol = col;
-        rows.sort((a, b) => {
-            const x = a.cells[col].innerText.trim().toLowerCase();
-            const y = b.cells[col].innerText.trim().toLowerCase();
-            return x < y ? -sortDir : x > y ? sortDir : 0;
+    const selectAll = document.getElementById('selectAll');
+    const rowChecks = Array.from(document.querySelectorAll('.row-check'));
+    const selCount = document.getElementById('selCount');
+
+    function updateCount() {
+        const n = document.querySelectorAll('.row-check:checked').length;
+        if (selCount) selCount.textContent = n;
+        if (selectAll) selectAll.checked = n > 0 && n === rowChecks.length;
+    }
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            rowChecks.forEach(c => c.checked = selectAll.checked);
+            updateCount();
         });
-        rows.forEach(r => tbody.appendChild(r));
+    }
+    rowChecks.forEach(c => c.addEventListener('change', updateCount));
+    updateCount();
+
+    function confirmBulkDelete() {
+        const n = document.querySelectorAll('.row-check:checked').length;
+        if (n === 0) {
+            alert('Select at least one domain first.');
+            return false;
+        }
+        return confirm('Delete ' + n + ' selected domain(s)? This cannot be undone.');
     }
 </script>
 }
