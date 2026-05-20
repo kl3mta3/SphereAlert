@@ -9,6 +9,12 @@ namespace SphereAlert.Models.AlertModels
         /// <summary>UTC. Null means the alert persists until manually cleared.</summary>
         public DateTime? EndAt { get; set; }
 
+        /// <summary>Whether visitors can dismiss the banner ("d" in the TXT JSON).</summary>
+        public bool Dismissable { get; set; } = true;
+
+        /// <summary>Force scroll-on-hover even when the message fits ("s" in the TXT JSON).</summary>
+        public bool ForceScroll { get; set; } = false;
+
         /// <summary>active / expired / cleared</summary>
         public string Status { get; set; } = "active";
 

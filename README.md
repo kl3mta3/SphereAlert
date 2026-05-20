@@ -136,11 +136,13 @@ or add a domain manually.
 
 1. Choose a **level**: `info`, `low`, `medium`, `high`, or `critical`.
 2. Type a **message** (up to 240 characters). A live preview shows exactly what the
-   banner — and the TXT record value — will look like.
-3. Optionally set an **end time**. Leave it blank and the alert stays up until you clear
+   banner — and the JSON TXT record value — will look like.
+3. Set **dismissable** and **force scroll-on-hover** as needed.
+4. Optionally set an **end time**. Leave it blank and the alert stays up until you clear
    it manually.
-4. Select one or more **domains**.
-5. **Send Alert.** SphereAlert writes `alert.<domain>` TXT records to every selected
+5. Select one or more **domains**, and for each domain pick which **slot** (1, 2, or 3)
+   the banner goes to.
+6. **Send Alert.** SphereAlert writes `alert[N].<domain>` TXT records to every selected
    domain's provider in parallel and shows you a per-domain result screen — which
    succeeded, which failed, and why. Failed domains can be retried from that screen.
 
@@ -202,17 +204,29 @@ SphereAlert/
   `alert.<domain>`.
 - **Health:** `GET /healthz` returns `ok`; the container `HEALTHCHECK` polls it.
 
-### The TXT record format
+### Slots and the TXT record format
 
-`sphere-alert.js` reads `alert.<domain>` and interprets the value:
+Each domain has **three alert slots**, read from `alert.<domain>`, `alert2.<domain>`,
+and `alert3.<domain>` — they render stacked, top to bottom. When you push an alert you
+pick a slot per domain.
 
-| TXT value                       | Result                              |
-|----------------------------------|-------------------------------------|
-| *(empty)* or `::none::`          | no banner                           |
-| `message`                        | banner at the default level (info)  |
-| `::level:: message`              | banner at the named level           |
+`sphere-alert.js` expects each slot's TXT record to be a JSON object:
 
-Levels: `none`, `info`, `low`, `medium`, `high`, `critical`.
+```json
+{"l":2,"m":"Maintenance Sat 7am-9am","d":1,"s":0}
+```
+
+| Field | Required | Meaning                                                            |
+|-------|----------|--------------------------------------------------------------------|
+| `l`   | yes      | level — `0` info, `1` low, `2` medium, `3` high, `4` critical      |
+| `m`   | yes      | message text (≤ 240 chars)                                         |
+| `d`   | no       | dismissable — `1` yes (default), `0` no                            |
+| `s`   | no       | force scroll-on-hover — `1` yes, `0` auto (default)                |
+
+Any value that is not valid JSON renders no banner. Clearing or expiring an alert
+replaces the record with a human-readable note — `Cleared <timestamp> UTC — previous:
+<message>` — so the record doubles as an audit trail. SphereAlert tracks the current
+value of every slot; open a domain to see what is live in each one.
 
 ---
 

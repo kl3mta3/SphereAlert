@@ -21,7 +21,9 @@
     <table class="data-table" style="margin-top:16px;">
         <tbody>
             <tr><td class="muted">Status</td><td style="text-transform:capitalize;">@alert.Status</td></tr>
-            <tr><td class="muted">TXT value</td><td><code class="txt-value">@AlertLevels.BuildTxtValue(alert.Level, alert.Message)</code></td></tr>
+            <tr><td class="muted">TXT value</td><td><code class="txt-value">@AlertLevels.BuildJsonValue(alert.Level, alert.Message, alert.Dismissable, alert.ForceScroll)</code></td></tr>
+            <tr><td class="muted">Dismissable</td><td>@(alert.Dismissable ? "Yes" : "No")</td></tr>
+            <tr><td class="muted">Force scroll</td><td>@(alert.ForceScroll ? "Yes" : "No")</td></tr>
             <tr><td class="muted">Created</td><td>@PageHelpers.FormatTime(alert.CreatedAt)</td></tr>
             <tr><td class="muted">Ends</td><td>@(alert.EndAt.HasValue ? PageHelpers.FormatTime(alert.EndAt) : "Manual clear only")</td></tr>
             <tr><td class="muted">Result</td><td>@Model.SuccessCount succeeded · @Model.FailedCount failed</td></tr>
@@ -53,13 +55,13 @@
     <h2><i class="bi bi-globe2"></i> Per-Domain Results</h2>
     <table class="data-table">
         <thead>
-            <tr><th>Domain</th><th>Push status</th><th>Detail</th><th>Pushed</th></tr>
+            <tr><th>TXT record</th><th>Push status</th><th>Detail</th><th>Pushed</th></tr>
         </thead>
         <tbody>
         @foreach (var domain in alert.Domains)
         {
             <tr>
-                <td>alert.@domain.DomainName</td>
+                <td>@(AlertLevels.SlotSubdomain(domain.Slot)).@domain.DomainName</td>
                 <td><span class="badge-pill @PageHelpers.StatusBadge(domain.PushStatus)">@domain.PushStatus</span></td>
                 <td class="text-small">@(string.IsNullOrEmpty(domain.PushError) ? "—" : domain.PushError)</td>
                 <td>@PageHelpers.FormatTime(domain.PushedAt)</td>

@@ -99,7 +99,7 @@
             @foreach (var domain in Model.Domains)
             {
                 <tr>
-                    <td><strong>@domain.Name</strong></td>
+                    <td><a href="/Domain?domainId=@domain.DomainId"><strong>@domain.Name</strong></a></td>
                     <td>@domain.ProviderDisplayName</td>
                     <td><span class="badge-pill @PageHelpers.StatusBadge(domain.Status)">@domain.Status</span></td>
                     <td><span class="badge-pill @PageHelpers.StatusBadge(domain.ScriptStatus)">@domain.ScriptStatus</span></td>

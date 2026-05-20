@@ -3,8 +3,17 @@
 **/obj/
 *.user
 
-# Runtime data volume (SQLite database, encryption keyfile, logs)
-data/
+# Runtime data volume at the repo root (Docker compose's ./data mount).
+# Anchored with a leading slash so it does NOT match the source folder
+# SphereAlert/Data/ — Git on Windows matches paths case-insensitively.
+/data/
+
+# Runtime artifacts, wherever they are written
+*.db
+*.db-shm
+*.db-wal
+spherealert.log
+.keyfile
 
 # IDE
 .vs/

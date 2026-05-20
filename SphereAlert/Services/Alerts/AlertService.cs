@@ -9,8 +9,9 @@ namespace SphereAlert.Services.Alerts
 {
     /// <summary>
     /// Orchestrates the alert lifecycle: pushing a new alert, re-pushing failed
-    /// domains, clearing an alert, and expiring it. DNS writes fan out in parallel;
-    /// database result writes are serialized afterward to avoid SQLite write contention.
+    /// domains, clearing an alert, and expiring it. Each (alert, domain) targets one
+    /// of three slots — alert / alert2 / alert3. DNS writes fan out in parallel;
+    /// database writes are serialized afterward to avoid SQLite write contention.
     /// </summary>
     public class AlertService
     {
@@ -31,24 +32,25 @@ namespace SphereAlert.Services.Alerts
             _logger = logger;
         }
 
-        /// <summary>Persists a new alert, creates its per-domain rows, and pushes the TXT records.</summary>
-        public async Task<Alert> PushNewAlertAsync(Alert alert, IEnumerable<string> domainIds)
+        /// <summary>Persists a new alert, creates its per-domain slot rows, and pushes the TXT records.</summary>
+        public async Task<Alert> PushNewAlertAsync(Alert alert, IReadOnlyDictionary<string, int> domainSlots)
         {
             await _alerts.InsertAlertAsync(alert);
 
-            var domains = await _domains.GetByIdsAsync(domainIds);
+            var domains = await _domains.GetByIdsAsync(domainSlots.Keys);
             foreach (var domain in domains)
             {
                 await _alerts.InsertAlertDomainAsync(new AlertDomain
                 {
                     AlertId = alert.AlertId,
                     DomainId = domain.DomainId,
+                    Slot = domainSlots.TryGetValue(domain.DomainId, out var slot) ? slot : 1,
                     PushStatus = "pending"
                 });
             }
 
             alert.Domains = await _alerts.GetAlertDomainsAsync(alert.AlertId);
-            string value = AlertLevels.BuildTxtValue(alert.Level, alert.Message);
+            string value = AlertLevels.BuildJsonValue(alert.Level, alert.Message, alert.Dismissable, alert.ForceScroll);
             await FanOutAsync(alert, domains, value, "push", alert.CreatedByUserId);
             return alert;
         }
@@ -65,11 +67,11 @@ namespace SphereAlert.Services.Alerts
                 : alert.Domains;
 
             var domains = await _domains.GetByIdsAsync(targets.Select(t => t.DomainId));
-            string value = AlertLevels.BuildTxtValue(alert.Level, alert.Message);
+            string value = AlertLevels.BuildJsonValue(alert.Level, alert.Message, alert.Dismissable, alert.ForceScroll);
             await FanOutAsync(alert, domains, value, "push", userId);
         }
 
-        /// <summary>Pushes ::none:: to every domain and marks the alert cleared.</summary>
+        /// <summary>Replaces every slot with a cleared note and marks the alert cleared.</summary>
         public async Task ClearAlertAsync(string alertId, string? userId)
         {
             var alert = await _alerts.GetByIdAsync(alertId);
@@ -77,11 +79,12 @@ namespace SphereAlert.Services.Alerts
                 return;
 
             var domains = await _domains.GetByIdsAsync(alert.Domains.Select(ad => ad.DomainId));
-            await FanOutAsync(alert, domains, AlertLevels.NoneValue, "clear", userId);
+            string value = AlertLevels.BuildClearedNote(alert.Message);
+            await FanOutAsync(alert, domains, value, "clear", userId);
             await _alerts.SetStatusAsync(alertId, "cleared", DateTime.UtcNow);
         }
 
-        /// <summary>Pushes ::none:: to every domain and marks the alert expired. Used by the scheduler.</summary>
+        /// <summary>Replaces every slot with a cleared note and marks the alert expired. Used by the scheduler.</summary>
         public async Task ExpireAlertAsync(string alertId)
         {
             var alert = await _alerts.GetByIdAsync(alertId);
@@ -89,13 +92,15 @@ namespace SphereAlert.Services.Alerts
                 return;
 
             var domains = await _domains.GetByIdsAsync(alert.Domains.Select(ad => ad.DomainId));
-            await FanOutAsync(alert, domains, AlertLevels.NoneValue, "expiry", null);
+            string value = AlertLevels.BuildClearedNote(alert.Message);
+            await FanOutAsync(alert, domains, value, "expiry", null);
             await _alerts.SetStatusAsync(alertId, "expired", DateTime.UtcNow);
         }
 
         private async Task FanOutAsync(
             Alert alert, List<DomainRecord> domains, string value, string eventType, string? userId)
         {
+            bool isPush = eventType == "push";
             var domainById = domains.ToDictionary(d => d.DomainId);
 
             // Resolve and cache each provider's decrypted credentials once.
@@ -116,8 +121,9 @@ namespace SphereAlert.Services.Alerts
                 try
                 {
                     var provider = DnsProviderFactory.Create(providerRecord, _logger);
+                    string subdomain = AlertLevels.SlotSubdomain(alertDomain.Slot);
                     var result = await provider.UpsertTxtRecordAsync(
-                        domain.Name, AlertLevels.Subdomain, value, AlertLevels.RecordTtlSeconds);
+                        domain.Name, subdomain, value, AlertLevels.RecordTtlSeconds);
                     return (alertDomain, result.Success, result.Error);
                 }
                 catch (Exception ex)
@@ -132,8 +138,15 @@ namespace SphereAlert.Services.Alerts
             foreach (var (alertDomain, success, error) in results)
             {
                 string status = success ? "success" : "failed";
-                await _alerts.UpdateAlertDomainResultAsync(alertDomain.Id, status, error);
+                await _alerts.UpdateAlertDomainResultAsync(alertDomain.Id, status, error, value);
                 await _domains.UpdateSyncStatusAsync(alertDomain.DomainId, success ? "ok" : "error");
+
+                // On a successful write, record what is now live in that slot.
+                if (success)
+                {
+                    await _domains.UpsertSlotStateAsync(
+                        alertDomain.DomainId, alertDomain.Slot, value, isPush ? alert.AlertId : null);
+                }
 
                 await _history.InsertAsync(new HistoryEntry
                 {
@@ -144,6 +157,8 @@ namespace SphereAlert.Services.Alerts
                     Timestamp = DateTime.UtcNow,
                     DetailsJson = JsonSerializer.Serialize(new
                     {
+                        slot = alertDomain.Slot,
+                        subdomain = AlertLevels.SlotSubdomain(alertDomain.Slot),
                         level = alert.Level,
                         value,
                         status,

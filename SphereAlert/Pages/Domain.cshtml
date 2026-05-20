@@ -1,0 +1,75 @@
+@page
+@model SphereAlert.Pages.DomainModel
+@using SphereAlert.Pages
+@{
+    ViewData["Title"] = "Domain";
+    var domain = Model.Domain!;
+}
+
+<div class="page-head">
+    <h1>@domain.Name</h1>
+    <p>Live state of this domain's three alert slots — what SphereAlert last wrote to each.</p>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <tbody>
+            <tr><td class="muted">DNS provider</td><td>@domain.ProviderDisplayName (@domain.ProviderType)</td></tr>
+            <tr><td class="muted">Last DNS write</td><td><span class="badge-pill @PageHelpers.StatusBadge(domain.Status)">@domain.Status</span></td></tr>
+            <tr><td class="muted">Script installed</td><td><span class="badge-pill @PageHelpers.StatusBadge(domain.ScriptStatus)">@domain.ScriptStatus</span></td></tr>
+        </tbody>
+    </table>
+    <div class="btn-row" style="margin-top:14px;">
+        <a href="/Compose" class="btn btn-sm btn-primary"><i class="bi bi-megaphone"></i> Push an Alert</a>
+        <a href="/Domains" class="btn btn-sm btn-secondary">Back to Domains</a>
+    </div>
+</div>
+
+@foreach (var slot in Model.Slots)
+{
+    <div class="card">
+        <h2><i class="bi bi-card-text"></i> Slot @slot.Slot — <code>@slot.RecordName</code></h2>
+
+        @if (slot.State == null)
+        {
+            <p class="muted">This slot has never been written. No TXT record is managed here.</p>
+        }
+        else
+        {
+            var alert = slot.Alert;
+            var live = alert != null && alert.Status == "active";
+            <table class="data-table">
+                <tbody>
+                    <tr>
+                        <td class="muted">Currently</td>
+                        <td>
+                            @if (live)
+                            {
+                                <span class="badge-pill @PageHelpers.LevelClass(alert!.Level)">@PageHelpers.LevelLabel(alert.Level)</span>
+                                <span>— this alert should still be showing.</span>
+                            }
+                            else
+                            {
+                                <span class="badge-pill badge-unknown">cleared</span>
+                                <span>— no banner is showing in this slot.</span>
+                            }
+                        </td>
+                    </tr>
+                    <tr><td class="muted">TXT value</td><td><code class="txt-value">@slot.State.CurrentValue</code></td></tr>
+                    @if (alert != null)
+                    {
+                        <tr><td class="muted">Message sent</td><td>@alert.Message</td></tr>
+                        <tr><td class="muted">Alert status</td><td style="text-transform:capitalize;">@alert.Status</td></tr>
+                    }
+                    <tr><td class="muted">Last updated</td><td>@PageHelpers.FormatTime(slot.State.UpdatedAt)</td></tr>
+                </tbody>
+            </table>
+            @if (live)
+            {
+                <div class="btn-row" style="margin-top:12px;">
+                    <a href="/Alert?alertId=@alert!.AlertId" class="btn btn-sm btn-ghost">View alert</a>
+                </div>
+            }
+        }
+    </div>
+}
