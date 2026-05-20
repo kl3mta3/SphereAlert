@@ -63,15 +63,12 @@ services:
     ports:
       - "7227:7227"
     volumes:
-      - spherealert-data:/data
+      - /var/lib/spherealert:/data
     environment:
       SPHEREALERT_DATA_DIR: /data
       SPHEREALERT_LOG_LEVEL: Info
     restart: unless-stopped
     container_name: spherealert
-
-volumes:
-  spherealert-data:
 ```
 
 ### docker run
@@ -80,7 +77,7 @@ volumes:
 docker build -t spherealert:latest .
 docker run -d --name spherealert \
   -p 7227:7227 \
-  -v spherealert-data:/data \
+  -v /var/lib/spherealert:/data \
   -e SPHEREALERT_DATA_DIR=/data \
   --restart unless-stopped \
   spherealert:latest
@@ -88,22 +85,26 @@ docker run -d --name spherealert \
 
 ### Data persistence
 
-The database, the encryption keyfile, and logs live in the **named Docker volume**
-`spherealert-data`. Docker creates it automatically on first `up` and keeps it in its
-own storage — **outside the project folder**. It survives image rebuilds, container
-recreation, redeploys, fresh `git clone`s, and `git clean`. Operators just run the
-container and sign in; nothing else to set up.
+The database, the encryption keyfile, and logs live in **`/var/lib/spherealert` on the
+host**, bind-mounted to `/data` in the container. Docker creates that directory on first
+run. Because it is an absolute path outside the repo and outside Docker's volume store,
+it survives **everything** a redeploy can throw at it:
 
-Only an explicit `docker compose down -v` (or `docker volume rm spherealert-data`)
-deletes it. To back it up:
+| Operation                          | Survives? |
+|-------------------------------------|-----------|
+| Image rebuild / `up --build`        | yes       |
+| `docker compose down` + `up`        | yes       |
+| `docker compose down -v`            | yes — `-v` removes *volumes*, not bind mounts |
+| `docker volume prune`               | yes — not a volume |
+| Fresh `git clone` / `git clean`     | yes — path is outside the repo |
 
-```bash
-docker run --rm -v spherealert-data:/data -v "$(pwd):/backup" \
-  busybox tar czf /backup/spherealert-backup.tgz -C /data .
-```
+Operators just run the container and sign in — nothing else to set up. To store the data
+somewhere else, change the left-hand side of the volume line. To back it up, copy
+`/var/lib/spherealert`.
 
-> A bind mount like `./data:/data` is **not** recommended: it puts the database inside
-> the project folder, where a redeploy that re-clones or cleans the repo will erase it.
+> A **named volume** or a `./data` bind mount is *not* used on purpose: named volumes are
+> destroyed by `docker compose down -v`, and a `./data` mount lives inside the repo where
+> a re-clone wipes it. An absolute host path avoids both traps.
 
 | Environment variable   | Default  | Purpose                                  |
 |------------------------|----------|------------------------------------------|

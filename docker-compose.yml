@@ -5,15 +5,19 @@ services:
     ports:
       - "7227:7227"
     volumes:
-      # Named volume — stored in Docker's own storage, OUTSIDE the project
-      # folder. It survives rebuilds, redeploys, and copying files over the
-      # project directory. Only `docker compose down -v` deletes it.
-      - spherealert-data:/data
+      # Bind mount to an ABSOLUTE host path, outside the repo and outside
+      # Docker's volume store. This is the most durable option — it survives:
+      #   - repo re-clone / git clean        (path is outside the repo)
+      #   - image rebuilds                   (data is not in the image)
+      #   - `docker compose down -v`         (down -v removes named/anonymous
+      #                                       VOLUMES; a bind mount is not one)
+      #   - `docker volume prune`            (same — not a volume)
+      #   - a changed compose project name   (path is absolute, not namespaced)
+      # Docker creates /var/lib/spherealert on the host if it does not exist.
+      # To store the data elsewhere, change only the left-hand side of this line.
+      - /var/lib/spherealert:/data
     environment:
       SPHEREALERT_DATA_DIR: /data
       SPHEREALERT_LOG_LEVEL: Info
     restart: unless-stopped
     container_name: spherealert
-
-volumes:
-  spherealert-data:
