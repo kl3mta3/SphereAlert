@@ -63,12 +63,15 @@ services:
     ports:
       - "7227:7227"
     volumes:
-      - ./data:/data
+      - spherealert-data:/data
     environment:
       SPHEREALERT_DATA_DIR: /data
       SPHEREALERT_LOG_LEVEL: Info
     restart: unless-stopped
     container_name: spherealert
+
+volumes:
+  spherealert-data:
 ```
 
 ### docker run
@@ -77,15 +80,30 @@ services:
 docker build -t spherealert:latest .
 docker run -d --name spherealert \
   -p 7227:7227 \
-  -v "$(pwd)/data:/data" \
+  -v spherealert-data:/data \
   -e SPHEREALERT_DATA_DIR=/data \
   --restart unless-stopped \
   spherealert:latest
 ```
 
-The `./data` volume holds the SQLite database, the encryption keyfile, and logs.
-**Back it up** — and keep the keyfile (`data/.keyfile`) out of any backup that also
-contains the database if you want encryption-at-rest to mean anything.
+### Data persistence
+
+The database, the encryption keyfile, and logs live in the **named Docker volume**
+`spherealert-data`. Docker creates it automatically on first `up` and keeps it in its
+own storage — **outside the project folder**. It survives image rebuilds, container
+recreation, redeploys, fresh `git clone`s, and `git clean`. Operators just run the
+container and sign in; nothing else to set up.
+
+Only an explicit `docker compose down -v` (or `docker volume rm spherealert-data`)
+deletes it. To back it up:
+
+```bash
+docker run --rm -v spherealert-data:/data -v "$(pwd):/backup" \
+  busybox tar czf /backup/spherealert-backup.tgz -C /data .
+```
+
+> A bind mount like `./data:/data` is **not** recommended: it puts the database inside
+> the project folder, where a redeploy that re-clones or cleans the repo will erase it.
 
 | Environment variable   | Default  | Purpose                                  |
 |------------------------|----------|------------------------------------------|

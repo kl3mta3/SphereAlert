@@ -5,9 +5,15 @@ services:
     ports:
       - "7227:7227"
     volumes:
-      - ./data:/data
+      # Named volume — stored in Docker's own storage, OUTSIDE the project
+      # folder. It survives rebuilds, redeploys, and copying files over the
+      # project directory. Only `docker compose down -v` deletes it.
+      - spherealert-data:/data
     environment:
       SPHEREALERT_DATA_DIR: /data
       SPHEREALERT_LOG_LEVEL: Info
     restart: unless-stopped
     container_name: spherealert
+
+volumes:
+  spherealert-data:
