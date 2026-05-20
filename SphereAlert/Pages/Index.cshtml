@@ -1,0 +1,32 @@
+@page
+@model SphereAlert.Pages.IndexModel
+@{
+    ViewData["Title"] = "Sign In";
+}
+
+<div class="login-box">
+    <div class="brand-lg">Sphere<strong>Alert</strong></div>
+    <div class="tagline">DNS-driven alert banners</div>
+
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <div class="notice notice-error">@Model.Error</div>
+    }
+
+    <form method="post">
+        <div class="form-row">
+            <label for="Username">Username</label>
+            <input type="text" id="Username" asp-for="Username" class="form-control" autocomplete="username" required />
+        </div>
+        <div class="form-row">
+            <label for="Password">Password</label>
+            <input type="password" id="Password" asp-for="Password" class="form-control" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Sign In</button>
+    </form>
+
+    <p class="muted text-small" style="margin-top:18px;">
+        First run? The default login is <code>admin</code> / <code>pass123</code> —
+        you'll be asked to change it immediately.
+    </p>
+</div>

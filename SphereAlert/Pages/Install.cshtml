@@ -1,0 +1,51 @@
+@page
+@model SphereAlert.Pages.InstallModel
+@{
+    ViewData["Title"] = "Install Script";
+}
+
+<div class="page-head">
+    <h1>Install the Script</h1>
+    <p>Get <code>sphere-alert.js</code> onto your sites so the banners can render.</p>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="notice notice-error">@Model.Error</div>
+}
+
+<div class="card">
+    <h2><i class="bi bi-file-earmark-zip"></i> Zip Injection</h2>
+    <p class="muted text-small">
+        Upload your site's build output (a .zip). SphereAlert adds the script tag to every
+        HTML file that doesn't already have it, drops <code>sphere-alert.js</code> into the
+        archive root, and gives you a repackaged .zip to re-upload to your host.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-row">
+            <label for="zipFile">Site archive (.zip)</label>
+            <input type="file" id="zipFile" name="zipFile" class="form-control" accept=".zip" style="max-width:420px;" required />
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-magic"></i> Process &amp; Download</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-pencil-square"></i> Manual Install</h2>
+    <p class="muted text-small">Prefer to do it by hand? Two steps on each site:</p>
+    <ol class="muted text-small">
+        <li>
+            Download <a href="/sphere-alert.js" download>sphere-alert.js</a> and place it at the root of your site.
+        </li>
+        <li>
+            Add this tag inside <code>&lt;head&gt;</code> (or <code>&lt;body&gt;</code>):
+            <div style="margin-top:8px;">
+                <code class="txt-value">&lt;script src="/sphere-alert.js" defer&gt;&lt;/script&gt;</code>
+            </div>
+        </li>
+    </ol>
+    <p class="muted text-small">
+        The script reads the <code>alert.&lt;domain&gt;</code> TXT record on every page load and
+        renders whatever banner SphereAlert has pushed. No further configuration needed.
+    </p>
+</div>

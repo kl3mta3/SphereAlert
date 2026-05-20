@@ -1,0 +1,13 @@
+services:
+  spherealert:
+    image: spherealert:latest
+    build: .
+    ports:
+      - "7227:7227"
+    volumes:
+      - ./data:/data
+    environment:
+      SPHEREALERT_DATA_DIR: /data
+      SPHEREALERT_LOG_LEVEL: Info
+    restart: unless-stopped
+    container_name: spherealert

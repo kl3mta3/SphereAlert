@@ -1,0 +1,121 @@
+@page
+@model SphereAlert.Pages.ProvidersModel
+@using SphereAlert.Pages
+@using SphereAlert.Models.DNSModels
+@{
+    ViewData["Title"] = "Providers";
+    var providerTypes = Enum.GetValues<ProviderType>();
+    bool editing = Model.EditTarget != null;
+}
+
+<div class="page-head">
+    <h1>DNS Providers</h1>
+    <p>Credentials SphereAlert uses to write the <code>alert.&lt;domain&gt;</code> TXT records. Stored encrypted at rest.</p>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="notice notice-error">@Model.Error</div>
+}
+
+<div class="card">
+    <h2><i class="bi bi-@(editing ? "pencil" : "plus-circle")"></i> @(editing ? "Edit Provider" : "Add a Provider")</h2>
+    <form method="post" asp-page-handler="@(editing ? "Edit" : "Add")">
+        <input type="hidden" asp-for="InputProviderId" />
+        <div class="form-row">
+            <label for="InputType">Provider type</label>
+            <select id="InputType" asp-for="InputType" class="form-select" style="max-width:280px;">
+                @foreach (var type in providerTypes)
+                {
+                    <option value="@type" selected="@(Model.InputType == type.ToString())">@type</option>
+                }
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="InputDisplayName">Display name</label>
+            <input type="text" id="InputDisplayName" asp-for="InputDisplayName" class="form-control"
+                   style="max-width:360px;" placeholder="e.g. Production Cloudflare" required />
+        </div>
+        <div class="form-row">
+            <label for="InputCredentials">API credentials</label>
+            <input type="password" id="InputCredentials" asp-for="InputCredentials" class="form-control"
+                   style="max-width:480px;" autocomplete="new-password"
+                   placeholder="@(editing ? "Leave blank to keep the stored credentials" : "")" />
+            <div class="form-hint" id="credHint"></div>
+        </div>
+        <div class="btn-row">
+            <button type="submit" class="btn btn-primary">@(editing ? "Save Changes" : "Add Provider")</button>
+            @if (editing)
+            {
+                <a href="/Providers" class="btn btn-secondary">Cancel</a>
+            }
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-hdd-network"></i> Configured Providers</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Type</th><th>Domains</th><th>Last test</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+        @if (Model.Providers.Count == 0)
+        {
+            <tr><td colspan="5" class="empty">No providers yet. Add one above.</td></tr>
+        }
+        else
+        {
+            @foreach (var provider in Model.Providers)
+            {
+                var count = Model.DomainCounts.GetValueOrDefault(provider.ProviderId);
+                <tr>
+                    <td><strong>@provider.DisplayName</strong></td>
+                    <td>@provider.Type</td>
+                    <td>@count</td>
+                    <td>
+                        @if (string.IsNullOrEmpty(provider.LastTestResult))
+                        {
+                            <span class="badge-pill badge-unknown">untested</span>
+                        }
+                        else
+                        {
+                            <span class="badge-pill @PageHelpers.StatusBadge(provider.LastTestResult)">@provider.LastTestResult</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="btn-row">
+                            <form method="post" asp-page-handler="Test" style="display:inline;">
+                                <input type="hidden" name="providerId" value="@provider.ProviderId" />
+                                <button type="submit" class="btn btn-sm btn-ghost">Test</button>
+                            </form>
+                            <a href="/Providers?edit=@provider.ProviderId" class="btn btn-sm btn-ghost">Edit</a>
+                            <form method="post" asp-page-handler="Delete" style="display:inline;"
+                                  onsubmit="return confirm('Delete @provider.DisplayName? This also removes its @count domain(s) and they will no longer receive alerts.');">
+                                <input type="hidden" name="providerId" value="@provider.ProviderId" />
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+    const HINTS = {
+        @foreach (var type in providerTypes)
+        {
+            @Html.Raw($"'{type}': {System.Text.Json.JsonSerializer.Serialize(ProviderCredentialInfo.Hint(type))},")
+        }
+    };
+    const typeSel = document.getElementById('InputType');
+    const hint = document.getElementById('credHint');
+    function showHint() { hint.textContent = 'Expected format: ' + (HINTS[typeSel.value] || ''); }
+    typeSel.addEventListener('change', showHint);
+    showHint();
+</script>
+}

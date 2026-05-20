@@ -1,0 +1,51 @@
+@page
+@model SphereAlert.Pages.SettingsModel
+@using SphereAlert.Services.Config
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="page-head">
+    <h1>Settings</h1>
+    <p>Account and instance configuration.</p>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-person-circle"></i> Account</h2>
+    <table class="data-table">
+        <tbody>
+            <tr><td class="muted">Signed in as</td><td><strong>@Model.CurrentUser!.Username</strong></td></tr>
+            <tr><td class="muted">Role</td><td>Administrator</td></tr>
+        </tbody>
+    </table>
+    <div class="btn-row" style="margin-top:14px;">
+        <a href="/ChangePassword" class="btn btn-primary"><i class="bi bi-key"></i> Change Password</a>
+        <a href="/Index?handler=Logout" class="btn btn-secondary"><i class="bi bi-power"></i> Log Out</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-tools"></i> Management</h2>
+    <div class="btn-row">
+        <a href="/Providers" class="btn btn-ghost"><i class="bi bi-hdd-network"></i> DNS Providers</a>
+        <a href="/Domains" class="btn btn-ghost"><i class="bi bi-globe2"></i> Domains</a>
+        <a href="/Install" class="btn btn-ghost"><i class="bi bi-file-earmark-zip"></i> Install Script</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-info-circle"></i> About This Instance</h2>
+    <table class="data-table">
+        <tbody>
+            <tr><td class="muted">Application</td><td>SphereAlert v1.0.0</td></tr>
+            <tr><td class="muted">Internal port</td><td>@ConfigureService.ServerPort</td></tr>
+            <tr><td class="muted">Data directory</td><td><code>@ConfigureService.DataDir</code></td></tr>
+            <tr><td class="muted">Client script</td><td><a href="/sphere-alert.js">/sphere-alert.js</a></td></tr>
+            <tr><td class="muted">Health endpoint</td><td><code>/healthz</code></td></tr>
+        </tbody>
+    </table>
+    <p class="muted text-small" style="margin-top:10px;">
+        SphereAlert is self-hosted and never phones home. Your DNS API keys stay on this box,
+        encrypted at rest.
+    </p>
+</div>

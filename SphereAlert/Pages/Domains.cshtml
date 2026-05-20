@@ -1,0 +1,154 @@
+@page
+@model SphereAlert.Pages.DomainsModel
+@using SphereAlert.Pages
+@{
+    ViewData["Title"] = "Domains";
+    bool editing = Model.EditTarget != null;
+}
+
+<div class="page-head">
+    <h1>Domains</h1>
+    <p>The zones SphereAlert can push banners to. Each alert writes a TXT record at <code>alert.&lt;domain&gt;</code>.</p>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="notice notice-error">@Model.Error</div>
+}
+
+<div class="card">
+    <h2><i class="bi bi-cloud-download"></i> Import from Providers</h2>
+    @if (Model.Providers.Count == 0)
+    {
+        <p class="muted">Add a <a href="/Providers">DNS provider</a> first, then refresh its domains here.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <tbody>
+            @foreach (var provider in Model.Providers)
+            {
+                <tr>
+                    <td><strong>@provider.DisplayName</strong> <span class="muted">· @provider.Type</span></td>
+                    <td style="text-align:right;">
+                        <form method="post" asp-page-handler="Refresh" style="display:inline;">
+                            <input type="hidden" name="providerId" value="@provider.ProviderId" />
+                            <button type="submit" class="btn btn-sm btn-ghost"><i class="bi bi-arrow-repeat"></i> Refresh domains</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-@(editing ? "pencil" : "plus-circle")"></i> @(editing ? "Edit Domain" : "Add a Domain Manually")</h2>
+    <form method="post" asp-page-handler="@(editing ? "Edit" : "Add")">
+        <input type="hidden" asp-for="InputDomainId" />
+        <div class="form-row">
+            <label for="InputName">Domain (zone)</label>
+            <input type="text" id="InputName" asp-for="InputName" class="form-control"
+                   style="max-width:340px;" placeholder="example.com" required />
+        </div>
+        <div class="form-row">
+            <label for="InputProviderId">DNS provider</label>
+            <select id="InputProviderId" asp-for="InputProviderId" class="form-select" style="max-width:340px;" required>
+                <option value="">— select a provider —</option>
+                @foreach (var provider in Model.Providers)
+                {
+                    <option value="@provider.ProviderId" selected="@(Model.InputProviderId == provider.ProviderId)">
+                        @provider.DisplayName (@provider.Type)
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="btn-row">
+            <button type="submit" class="btn btn-primary" disabled="@(Model.Providers.Count == 0)">
+                @(editing ? "Save Changes" : "Add Domain")
+            </button>
+            @if (editing)
+            {
+                <a href="/Domains" class="btn btn-secondary">Cancel</a>
+            }
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-globe2"></i> All Domains (@Model.Domains.Count)</h2>
+    <table class="data-table" id="domainTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">Domain</th>
+                <th onclick="sortTable(1)">Provider</th>
+                <th onclick="sortTable(2)">Status</th>
+                <th onclick="sortTable(3)">Script</th>
+                <th onclick="sortTable(4)">Active alert</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @if (Model.Domains.Count == 0)
+        {
+            <tr><td colspan="6" class="empty">No domains yet. Import them from a provider or add one manually.</td></tr>
+        }
+        else
+        {
+            @foreach (var domain in Model.Domains)
+            {
+                <tr>
+                    <td><a href="/Domain?domainId=@domain.DomainId"><strong>@domain.Name</strong></a></td>
+                    <td>@domain.ProviderDisplayName</td>
+                    <td><span class="badge-pill @PageHelpers.StatusBadge(domain.Status)">@domain.Status</span></td>
+                    <td><span class="badge-pill @PageHelpers.StatusBadge(domain.ScriptStatus)">@domain.ScriptStatus</span></td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(domain.ActiveAlertLevel))
+                        {
+                            <span class="badge-pill @PageHelpers.LevelClass(domain.ActiveAlertLevel)">@PageHelpers.LevelLabel(domain.ActiveAlertLevel)</span>
+                        }
+                        else
+                        {
+                            <span class="muted">none</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="btn-row">
+                            <form method="post" asp-page-handler="Detect" style="display:inline;">
+                                <input type="hidden" name="domainId" value="@domain.DomainId" />
+                                <button type="submit" class="btn btn-sm btn-ghost" title="Check whether sphere-alert.js is installed">Check script</button>
+                            </form>
+                            <a href="/Domains?edit=@domain.DomainId" class="btn btn-sm btn-ghost">Edit</a>
+                            <form method="post" asp-page-handler="Delete" style="display:inline;"
+                                  onsubmit="return confirm('Remove @domain.Name from SphereAlert?');">
+                                <input type="hidden" name="domainId" value="@domain.DomainId" />
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+    let sortCol = -1, sortDir = 1;
+    function sortTable(col) {
+        const tbody = document.querySelector('#domainTable tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => !r.querySelector('.empty'));
+        if (rows.length === 0) return;
+        sortDir = (sortCol === col) ? -sortDir : 1;
+        sortCol = col;
+        rows.sort((a, b) => {
+            const x = a.cells[col].innerText.trim().toLowerCase();
+            const y = b.cells[col].innerText.trim().toLowerCase();
+            return x < y ? -sortDir : x > y ? sortDir : 0;
+        });
+        rows.forEach(r => tbody.appendChild(r));
+    }
+</script>
+}
