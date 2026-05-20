@@ -20,22 +20,21 @@ namespace SphereAlert.Pages
         }
 
         [BindProperty] public string Level { get; set; } = "info";
+
+        /// <summary>The slot every selected domain is pushed to: 1 (alert), 2 (alert2), 3 (alert3).</summary>
+        [BindProperty] public int Slot { get; set; } = 1;
+
         [BindProperty] public string Message { get; set; } = string.Empty;
         [BindProperty] public string? EndAtLocal { get; set; }
         [BindProperty] public bool Dismissable { get; set; } = true;
         [BindProperty] public bool ForceScroll { get; set; }
-        [BindProperty] public List<string> SelectedDomainIds { get; set; } = new();
 
-        /// <summary>One "domainId:slot" entry per domain row in the picker.</summary>
-        [BindProperty] public List<string> SlotSelections { get; set; } = new();
+        /// <summary>One entry per domain dropdown in the picker. Blank entries are ignored.</summary>
+        [BindProperty] public List<string> SelectedDomainIds { get; set; } = new();
 
         [BindProperty] public string? EditAlertId { get; set; }
 
         public List<DomainRecord> AllDomains { get; private set; } = new();
-
-        /// <summary>In edit mode: the slot each domain is locked to.</summary>
-        public Dictionary<string, int> EditSlots { get; private set; } = new();
-
         public bool IsEdit => !string.IsNullOrEmpty(EditAlertId);
         public string? Error { get; private set; }
 
@@ -59,7 +58,7 @@ namespace SphereAlert.Pages
                 ForceScroll = alert.ForceScroll;
                 EndAtLocal = alert.EndAt?.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
                 SelectedDomainIds = alert.Domains.Select(d => d.DomainId).ToList();
-                EditSlots = alert.Domains.ToDictionary(d => d.DomainId, d => d.Slot);
+                Slot = alert.Domains.FirstOrDefault()?.Slot ?? 1;
             }
 
             return Page();
@@ -76,6 +75,11 @@ namespace SphereAlert.Pages
             if (!AlertLevels.IsValidLevel(Level))
             {
                 Error = "Choose a valid alert level.";
+                return Page();
+            }
+            if (Slot < 1 || Slot > AlertLevels.SlotCount)
+            {
+                Error = "Choose a valid alert slot.";
                 return Page();
             }
             if (string.IsNullOrWhiteSpace(Message))
@@ -114,26 +118,20 @@ namespace SphereAlert.Pages
                 return RedirectToPage("/Alert", new { alertId = EditAlertId });
             }
 
-            if (SelectedDomainIds.Count == 0)
+            // Each domain dropdown posts into SelectedDomainIds; drop blanks and dupes.
+            var domainIds = SelectedDomainIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToList();
+
+            if (domainIds.Count == 0)
             {
                 Error = "Select at least one domain.";
                 return Page();
             }
 
-            // Map each selected domain to its chosen slot (default slot 1).
-            var slotByDomain = new Dictionary<string, int>();
-            foreach (var entry in SlotSelections)
-            {
-                int sep = entry.LastIndexOf(':');
-                if (sep <= 0) continue;
-                string domainId = entry[..sep];
-                if (int.TryParse(entry[(sep + 1)..], out int slot) && slot >= 1 && slot <= AlertLevels.SlotCount)
-                    slotByDomain[domainId] = slot;
-            }
-
-            var domainSlots = new Dictionary<string, int>();
-            foreach (var domainId in SelectedDomainIds.Distinct())
-                domainSlots[domainId] = slotByDomain.GetValueOrDefault(domainId, 1);
+            // One slot for the whole push — every selected domain gets it.
+            var domainSlots = domainIds.ToDictionary(id => id, _ => Slot);
 
             var alert = new Alert
             {

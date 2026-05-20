@@ -158,20 +158,20 @@ The banners only appear once `sphere-alert.js` is on the site. Two ways:
 
 ### Manual
 
-1. Download the script from your running container: `http://<host>:7227/sphere-alert.js`
-2. Place it at the root of your site.
+1. Download the script from your running container: `http://<host>:7227/js/sphere-alert.js`
+2. Place it in a `js/` folder at the root of your site (`js/sphere-alert.js`).
 3. Add this tag inside `<head>` (or `<body>`):
 
    ```html
-   <script src="/sphere-alert.js" defer></script>
+   <script src="/js/sphere-alert.js" defer></script>
    ```
 
 ### Zip injection (Tools → Install)
 
 Upload your site's build output as a `.zip`. SphereAlert adds the script tag to every
-HTML file that doesn't already have it, drops `sphere-alert.js` into the archive root,
-and hands back a repackaged `.zip` for you to re-upload to your host. There is no
-FTP/SSH integration by design — you stay in control of the deploy.
+HTML file that doesn't already have it, drops `sphere-alert.js` into a `js/` folder
+(creating it if absent), and hands back a repackaged `.zip` for you to re-upload to your
+host. There is no FTP/SSH integration by design — you stay in control of the deploy.
 
 ---
 
@@ -180,7 +180,7 @@ FTP/SSH integration by design — you stay in control of the deploy.
 ```
 SphereAlert/
   Program.cs / Services/Config/StartUp.cs   bootstrap + DI + Kestrel (:7227)
-  Controllers/ScriptController.cs           GET /sphere-alert.js, GET /healthz
+  Controllers/ScriptController.cs           GET /js/sphere-alert.js, GET /healthz
   Pages/                                    Razor Pages UI (login, dashboard, compose,
                                             active, history, domains, providers, install)
   Data/Database/DatabaseManager.cs          SQLite schema + versioned migration
