@@ -23,7 +23,10 @@ namespace SphereAlert.Pages
 
         public string? Error { get; set; }
 
-        public IActionResult OnGet()
+        /// <summary>True before the default admin/pass123 login has been changed.</summary>
+        public bool IsFirstRun { get; private set; }
+
+        public async Task<IActionResult> OnGetAsync()
         {
             // Already signed in — skip the login form.
             var data = HttpContext.Session.GetString(SessionKey);
@@ -37,6 +40,8 @@ namespace SphereAlert.Pages
                         : RedirectToPage("/Dashboard");
                 }
             }
+
+            IsFirstRun = await _userRepository.IsFirstRunAsync();
             return Page();
         }
 
