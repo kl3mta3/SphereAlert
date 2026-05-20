@@ -149,10 +149,9 @@ html, body {
 }
 
 .brand strong {
-    margin: 0;
+    margin-left: -3px;
     padding: 0;
     letter-spacing: normal;
-    word-spacing: normal;
 }
 
 /* ---- Page furniture ----------------------------------------------------- */
