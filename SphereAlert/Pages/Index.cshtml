@@ -25,8 +25,11 @@
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Sign In</button>
     </form>
 
-    <p class="muted text-small" style="margin-top:18px;">
-        First run? The default login is <code>admin</code> / <code>pass123</code> —
-        you'll be asked to change it immediately.
-    </p>
+    @if (Model.IsFirstRun)
+    {
+        <p class="muted text-small" style="margin-top:18px;">
+            First run? The default login is <code>admin</code> / <code>pass123</code> —
+            you'll be asked to change it immediately.
+        </p>
+    }
 </div>

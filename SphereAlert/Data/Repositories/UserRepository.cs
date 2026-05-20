@@ -14,6 +14,16 @@ namespace SphereAlert.Data.Repositories
             return (long)(await command.ExecuteScalarAsync() ?? 0L);
         }
 
+        /// <summary>True while a seed account still has its forced credential change pending —
+        /// i.e. the default admin/pass123 login has not been changed yet.</summary>
+        public async Task<bool> IsFirstRunAsync()
+        {
+            using var connection = await DatabaseManager.OpenConnectionAsync();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(1) FROM Users WHERE MustChangePassword = 1;";
+            return (long)(await command.ExecuteScalarAsync() ?? 0L) > 0;
+        }
+
         public async Task<User?> GetUserByUsernameAsync(string username)
         {
             using var connection = await DatabaseManager.OpenConnectionAsync();
