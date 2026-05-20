@@ -1,0 +1,22 @@
+# Deployed by Coolify with the "Docker Compose" build pack.
+# Persistence: the named volume `spherealert-data` is declared in the
+# top-level volumes: section below. Coolify creates it once and keeps it
+# across every redeploy — it is NOT destroyed by rebuilds or redeploys.
+# It shows up under the app's "Persistent Storage" tab in Coolify.
+#
+# Do NOT set container_name here — Coolify manages container names, and a
+# hardcoded one conflicts on redeploy.
+services:
+  spherealert:
+    build: .
+    ports:
+      - "7227:7227"
+    environment:
+      - SPHEREALERT_DATA_DIR=/data
+      - SPHEREALERT_LOG_LEVEL=Info
+    volumes:
+      - spherealert-data:/data
+    restart: unless-stopped
+
+volumes:
+  spherealert-data:
