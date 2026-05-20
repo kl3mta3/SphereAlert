@@ -1,0 +1,98 @@
+@page
+@model SphereAlert.Pages.DashboardModel
+@using SphereAlert.Pages
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-head">
+    <h1>Dashboard</h1>
+    <p>Overview of your providers, domains, and live alerts.</p>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-tile">
+        <div class="value">@Model.ProviderCount</div>
+        <div class="label">DNS Providers</div>
+    </div>
+    <div class="stat-tile">
+        <div class="value">@Model.DomainCount</div>
+        <div class="label">Domains</div>
+    </div>
+    <div class="stat-tile">
+        <div class="value">@Model.ActiveAlertCount</div>
+        <div class="label">Active Alerts</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="btn-row">
+        <a href="/Compose" class="btn btn-primary"><i class="bi bi-megaphone"></i> Push a New Alert</a>
+        <a href="/ActiveAlerts" class="btn btn-ghost"><i class="bi bi-bell"></i> View Active Alerts</a>
+        @if (Model.ProviderCount == 0)
+        {
+            <a href="/Providers" class="btn btn-ghost"><i class="bi bi-hdd-network"></i> Add a DNS Provider</a>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-bell-fill"></i> Active Alerts</h2>
+    @if (Model.ActiveAlerts.Count == 0)
+    {
+        <p class="muted">No active alerts. Every banner is currently cleared.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>Level</th><th>Message</th><th>Domains</th><th>Ends</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var alert in Model.ActiveAlerts)
+            {
+                <tr>
+                    <td><span class="badge-pill @PageHelpers.LevelClass(alert.Level)">@PageHelpers.LevelLabel(alert.Level)</span></td>
+                    <td>@alert.Message</td>
+                    <td>@alert.Domains.Count(d => d.PushStatus == "success") / @alert.Domains.Count</td>
+                    <td>@(alert.EndAt.HasValue ? PageHelpers.FormatTime(alert.EndAt) : "manual clear")</td>
+                    <td><a href="/ActiveAlerts" class="btn btn-sm btn-ghost">Manage</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-clock-history"></i> Recent Activity</h2>
+    @if (Model.RecentHistory.Count == 0)
+    {
+        <p class="muted">No activity yet.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>When</th><th>Event</th><th>Domain</th><th>Level</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var entry in Model.RecentHistory)
+            {
+                <tr>
+                    <td>@PageHelpers.FormatTime(entry.Timestamp)</td>
+                    <td style="text-transform:capitalize;">@entry.EventType</td>
+                    <td>@(string.IsNullOrEmpty(entry.DomainName) ? "—" : entry.DomainName)</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(entry.AlertLevel))
+                        {
+                            <span class="badge-pill @PageHelpers.LevelClass(entry.AlertLevel)">@PageHelpers.LevelLabel(entry.AlertLevel)</span>
+                        }
+                        else { <span class="muted">—</span> }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>

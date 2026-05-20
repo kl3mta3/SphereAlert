@@ -1,0 +1,78 @@
+@page
+@model SphereAlert.Pages.HistoryModel
+@using SphereAlert.Pages
+@using SphereAlert.Models.AlertModels
+@{
+    ViewData["Title"] = "History";
+    string[] eventTypes = { "push", "clear", "expiry" };
+}
+
+<div class="page-head">
+    <h1>History</h1>
+    <p>A read-only log of every alert push, clear, and expiry.</p>
+</div>
+
+<div class="card">
+    <form method="get">
+        <div class="toolbar">
+            <select name="FilterDomainId" class="form-select" style="max-width:220px;">
+                <option value="">All domains</option>
+                @foreach (var domain in Model.AllDomains)
+                {
+                    <option value="@domain.DomainId" selected="@(Model.FilterDomainId == domain.DomainId)">@domain.Name</option>
+                }
+            </select>
+            <select name="FilterEventType" class="form-select" style="max-width:150px;">
+                <option value="">All events</option>
+                @foreach (var ev in eventTypes)
+                {
+                    <option value="@ev" selected="@(Model.FilterEventType == ev)">@ev</option>
+                }
+            </select>
+            <select name="FilterLevel" class="form-select" style="max-width:150px;">
+                <option value="">All levels</option>
+                @foreach (var lvl in AlertLevels.All)
+                {
+                    <option value="@lvl" selected="@(Model.FilterLevel == lvl)">@PageHelpers.LevelLabel(lvl)</option>
+                }
+            </select>
+            <input type="date" name="FilterFrom" class="form-control" style="max-width:160px;" value="@Model.FilterFrom" />
+            <input type="date" name="FilterTo" class="form-control" style="max-width:160px;" value="@Model.FilterTo" />
+            <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+            <a href="/History" class="btn btn-sm btn-secondary">Reset</a>
+        </div>
+    </form>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>When</th><th>Event</th><th>Domain</th><th>Level</th><th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+        @if (Model.Entries.Count == 0)
+        {
+            <tr><td colspan="5" class="empty">No history entries match these filters.</td></tr>
+        }
+        else
+        {
+            @foreach (var entry in Model.Entries)
+            {
+                <tr>
+                    <td>@PageHelpers.FormatTime(entry.Timestamp)</td>
+                    <td style="text-transform:capitalize;">@entry.EventType</td>
+                    <td>@(string.IsNullOrEmpty(entry.DomainName) ? "—" : entry.DomainName)</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(entry.AlertLevel))
+                        {
+                            <span class="badge-pill @PageHelpers.LevelClass(entry.AlertLevel)">@PageHelpers.LevelLabel(entry.AlertLevel)</span>
+                        }
+                        else { <span class="muted">—</span> }
+                    </td>
+                    <td class="text-small">@entry.AlertMessage</td>
+                </tr>
+            }
+        }
+        </tbody>
+    </table>
+</div>

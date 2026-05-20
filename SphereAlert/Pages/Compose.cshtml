@@ -1,0 +1,185 @@
+@page
+@model SphereAlert.Pages.ComposeModel
+@using SphereAlert.Pages
+@using SphereAlert.Models.AlertModels
+@{
+    ViewData["Title"] = Model.IsEdit ? "Edit Alert" : "New Alert";
+}
+
+<div class="page-head">
+    <h1>@(Model.IsEdit ? "Edit Alert" : "Push a New Alert")</h1>
+    <p>
+        @(Model.IsEdit
+            ? "Update the level, message, or end time. Changes are re-pushed to the alert's domains."
+            : "Select domains, pick a level, write a message, and send it to every site at once.")
+    </p>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="notice notice-error">@Model.Error</div>
+}
+
+@if (!Model.IsEdit && Model.AllDomains.Count == 0)
+{
+    <div class="notice notice-info">
+        You have no domains yet. Add a <a href="/Providers">DNS provider</a> and
+        <a href="/Domains">import your domains</a> first.
+    </div>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="EditAlertId" />
+
+    <div class="card">
+        <h2><i class="bi bi-sliders"></i> Alert</h2>
+
+        <div class="form-row">
+            <label for="Level">Level</label>
+            <select id="Level" asp-for="Level" class="form-select" style="max-width:240px;">
+                @foreach (var lvl in AlertLevels.All)
+                {
+                    <option value="@lvl" selected="@(Model.Level == lvl)">@PageHelpers.LevelLabel(lvl)</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-row">
+            <label for="Message">Message</label>
+            <textarea id="Message" asp-for="Message" class="form-control" rows="2"
+                      maxlength="@AlertLevels.MaxMessageLength" required>@Model.Message</textarea>
+            <div class="form-hint"><span id="charCount">0</span> / @AlertLevels.MaxMessageLength characters</div>
+        </div>
+
+        <div class="form-row">
+            <label for="EndAtLocal">End time <span class="muted">(optional — your local time)</span></label>
+            <input type="datetime-local" id="EndAtLocal" asp-for="EndAtLocal" class="form-control" style="max-width:280px;" />
+            <div class="form-hint">Leave blank to keep the alert up until you clear it manually.</div>
+        </div>
+
+        <div class="form-row">
+            <label>Live preview</label>
+            <div id="bannerPreview" class="banner-preview lvl-info">
+                <span id="previewLabel" class="lvl-label lvl-info">Info</span>
+                <div id="previewMessage" style="flex:1;">(your message)</div>
+            </div>
+            <div class="form-hint">TXT record value: <code class="txt-value" id="txtValue">::info:: </code></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2><i class="bi bi-globe2"></i> Domains</h2>
+
+        @if (Model.IsEdit)
+        {
+            <p class="muted text-small">Editing an alert keeps its original domains. To target different domains, push a new alert.</p>
+            <div class="pick-list">
+                @foreach (var domain in Model.AllDomains.Where(d => Model.SelectedDomainIds.Contains(d.DomainId)))
+                {
+                    <div class="pick-item">
+                        <input type="checkbox" name="SelectedDomainIds" value="@domain.DomainId" checked disabled />
+                        <label>@domain.Name <span class="sub">· @domain.ProviderDisplayName</span></label>
+                    </div>
+                }
+                @foreach (var domain in Model.SelectedDomainIds)
+                {
+                    <input type="hidden" name="SelectedDomainIds" value="@domain" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="toolbar">
+                <input type="search" id="domainSearch" class="form-control" placeholder="Filter domains…" />
+                <button type="button" class="btn btn-sm btn-secondary" onclick="pickAll(true)">Select all</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="pickAll(false)">Clear</button>
+                <span class="spacer"></span>
+                <span class="muted text-small"><span id="selCount">0</span> selected</span>
+            </div>
+            <div class="pick-list" id="domainList">
+                @foreach (var domain in Model.AllDomains)
+                {
+                    <div class="pick-item" data-name="@domain.Name.ToLowerInvariant()">
+                        <input type="checkbox" name="SelectedDomainIds" value="@domain.DomainId"
+                               id="dom_@domain.DomainId" class="domain-check"
+                               checked="@Model.SelectedDomainIds.Contains(domain.DomainId)" />
+                        <label for="dom_@domain.DomainId">
+                            @domain.Name
+                            <span class="sub">· @domain.ProviderDisplayName</span>
+                        </label>
+                        @if (!string.IsNullOrEmpty(domain.ActiveAlertLevel))
+                        {
+                            <span class="badge-pill @PageHelpers.LevelClass(domain.ActiveAlertLevel)">alert live</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="btn-row">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-send"></i> @(Model.IsEdit ? "Save & Re-push" : "Send Alert")
+        </button>
+        <a href="@(Model.IsEdit ? "/ActiveAlerts" : "/Dashboard")" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+    const LEVELS = {
+        info:     { cls: 'lvl-info',     label: 'Info',     border: '#185FA5' },
+        low:      { cls: 'lvl-low',      label: 'Notice',   border: '#3B6D11' },
+        medium:   { cls: 'lvl-medium',   label: 'Warning',  border: '#854F0B' },
+        high:     { cls: 'lvl-high',     label: 'Alert',    border: '#993C1D' },
+        critical: { cls: 'lvl-critical', label: 'Critical', border: '#A32D2D' }
+    };
+    const levelSel = document.getElementById('Level');
+    const msgInput = document.getElementById('Message');
+    const preview = document.getElementById('bannerPreview');
+    const previewLabel = document.getElementById('previewLabel');
+    const previewMessage = document.getElementById('previewMessage');
+    const txtValue = document.getElementById('txtValue');
+    const charCount = document.getElementById('charCount');
+
+    function refresh() {
+        const lvl = LEVELS[levelSel.value] || LEVELS.info;
+        const msg = msgInput.value.trim();
+        preview.className = 'banner-preview ' + lvl.cls;
+        preview.style.borderLeftColor = lvl.border;
+        previewLabel.className = 'lvl-label ' + lvl.cls;
+        previewLabel.textContent = lvl.label;
+        previewMessage.textContent = msg || '(your message)';
+        txtValue.textContent = '::' + levelSel.value + ':: ' + msg;
+        charCount.textContent = msgInput.value.length;
+    }
+    levelSel.addEventListener('change', refresh);
+    msgInput.addEventListener('input', refresh);
+    refresh();
+
+    // Domain picker (new-alert mode only)
+    const search = document.getElementById('domainSearch');
+    if (search) {
+        search.addEventListener('input', function () {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#domainList .pick-item').forEach(item => {
+                item.style.display = item.dataset.name.includes(q) ? '' : 'none';
+            });
+        });
+    }
+    function pickAll(state) {
+        document.querySelectorAll('#domainList .pick-item').forEach(item => {
+            if (item.style.display === 'none') return;
+            item.querySelector('.domain-check').checked = state;
+        });
+        updateCount();
+    }
+    function updateCount() {
+        const sel = document.querySelectorAll('.domain-check:checked').length;
+        const el = document.getElementById('selCount');
+        if (el) el.textContent = sel;
+    }
+    document.querySelectorAll('.domain-check').forEach(c => c.addEventListener('change', updateCount));
+    updateCount();
+</script>
+}

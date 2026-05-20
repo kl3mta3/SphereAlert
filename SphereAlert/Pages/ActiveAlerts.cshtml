@@ -1,0 +1,52 @@
+@page
+@model SphereAlert.Pages.ActiveAlertsModel
+@using SphereAlert.Pages
+@{
+    ViewData["Title"] = "Active Alerts";
+}
+
+<div class="page-head">
+    <h1>Active Alerts</h1>
+    <p>Every alert currently showing a banner on one or more domains.</p>
+</div>
+
+@if (Model.Alerts.Count == 0)
+{
+    <div class="card">
+        <p class="muted">No active alerts. <a href="/Compose">Push a new alert</a> to get started.</p>
+    </div>
+}
+else
+{
+    @foreach (var alert in Model.Alerts)
+    {
+        var ok = alert.Domains.Count(d => d.PushStatus == "success");
+        var failed = alert.Domains.Count(d => d.PushStatus == "failed");
+        <div class="card">
+            <div class="toolbar">
+                <span class="badge-pill @PageHelpers.LevelClass(alert.Level)">@PageHelpers.LevelLabel(alert.Level)</span>
+                <strong>@alert.Message</strong>
+                <span class="spacer"></span>
+                <span class="muted text-small">
+                    started @PageHelpers.FormatTime(alert.CreatedAt) ·
+                    @(alert.EndAt.HasValue ? "ends " + PageHelpers.FormatTime(alert.EndAt) : "manual clear only")
+                </span>
+            </div>
+
+            <p class="text-small muted">
+                Domains: @ok pushed@(failed > 0 ? $", {failed} failed" : "") of @alert.Domains.Count
+                — @string.Join(", ", alert.Domains.Select(d => d.DomainName))
+            </p>
+
+            <div class="btn-row">
+                <a href="/Alert?alertId=@alert.AlertId" class="btn btn-sm btn-ghost"><i class="bi bi-list-ul"></i> Details</a>
+                <a href="/Compose?alertId=@alert.AlertId" class="btn btn-sm btn-ghost"><i class="bi bi-pencil"></i> Edit</a>
+                <form method="post" asp-page-handler="Clear" style="display:inline;"
+                      onsubmit="return confirm('Clear this alert? The banner will be removed from every domain.');">
+                    <input type="hidden" name="alertId" value="@alert.AlertId" />
+                    <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-x-circle"></i> Clear Now</button>
+                </form>
+            </div>
+        </div>
+    }
+}

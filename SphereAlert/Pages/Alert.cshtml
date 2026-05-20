@@ -1,0 +1,70 @@
+@page
+@model SphereAlert.Pages.AlertModel
+@using SphereAlert.Pages
+@using SphereAlert.Models.AlertModels
+@{
+    ViewData["Title"] = "Alert";
+    var alert = Model.Alert!;
+}
+
+<div class="page-head">
+    <h1>Alert Detail</h1>
+    <p>Push results for this alert, domain by domain.</p>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-megaphone"></i> Summary</h2>
+    <div class="banner-preview @PageHelpers.LevelClass(alert.Level)" style="border-left-color:currentColor;">
+        <span class="lvl-label @PageHelpers.LevelClass(alert.Level)">@PageHelpers.LevelLabel(alert.Level)</span>
+        <div style="flex:1;">@alert.Message</div>
+    </div>
+    <table class="data-table" style="margin-top:16px;">
+        <tbody>
+            <tr><td class="muted">Status</td><td style="text-transform:capitalize;">@alert.Status</td></tr>
+            <tr><td class="muted">TXT value</td><td><code class="txt-value">@AlertLevels.BuildTxtValue(alert.Level, alert.Message)</code></td></tr>
+            <tr><td class="muted">Created</td><td>@PageHelpers.FormatTime(alert.CreatedAt)</td></tr>
+            <tr><td class="muted">Ends</td><td>@(alert.EndAt.HasValue ? PageHelpers.FormatTime(alert.EndAt) : "Manual clear only")</td></tr>
+            <tr><td class="muted">Result</td><td>@Model.SuccessCount succeeded · @Model.FailedCount failed</td></tr>
+        </tbody>
+    </table>
+
+    <div class="btn-row" style="margin-top:16px;">
+        @if (Model.FailedCount > 0)
+        {
+            <form method="post" asp-page-handler="Retry" style="display:inline;">
+                <input type="hidden" name="alertId" value="@alert.AlertId" />
+                <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-clockwise"></i> Retry Failed (@Model.FailedCount)</button>
+            </form>
+        }
+        @if (alert.Status == "active")
+        {
+            <a href="/Compose?alertId=@alert.AlertId" class="btn btn-ghost"><i class="bi bi-pencil"></i> Edit</a>
+            <form method="post" asp-page-handler="Clear" style="display:inline;"
+                  onsubmit="return confirm('Clear this alert? The banner will be removed from every domain.');">
+                <input type="hidden" name="alertId" value="@alert.AlertId" />
+                <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle"></i> Clear Now</button>
+            </form>
+        }
+        <a href="/ActiveAlerts" class="btn btn-secondary">Back</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2><i class="bi bi-globe2"></i> Per-Domain Results</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Domain</th><th>Push status</th><th>Detail</th><th>Pushed</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var domain in alert.Domains)
+        {
+            <tr>
+                <td>alert.@domain.DomainName</td>
+                <td><span class="badge-pill @PageHelpers.StatusBadge(domain.PushStatus)">@domain.PushStatus</span></td>
+                <td class="text-small">@(string.IsNullOrEmpty(domain.PushError) ? "—" : domain.PushError)</td>
+                <td>@PageHelpers.FormatTime(domain.PushedAt)</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
