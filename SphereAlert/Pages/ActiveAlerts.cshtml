@@ -40,7 +40,7 @@ else
 
             <div class="btn-row">
                 <a href="/Alert?alertId=@alert.AlertId" class="btn btn-sm btn-ghost"><i class="bi bi-list-ul"></i> Details</a>
-                <a href="/Compose?alertId=@alert.AlertId" class="btn btn-sm btn-ghost"><i class="bi bi-pencil"></i> Edit</a>
+                <a href="/Compose?domainId=@(alert.Domains.FirstOrDefault()?.DomainId)" class="btn btn-sm btn-ghost"><i class="bi bi-pencil"></i> Edit</a>
                 <form method="post" asp-page-handler="Clear" style="display:inline;"
                       onsubmit="return confirm('Clear this alert? The banner will be removed from every domain.');">
                     <input type="hidden" name="alertId" value="@alert.AlertId" />

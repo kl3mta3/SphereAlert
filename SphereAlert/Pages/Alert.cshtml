@@ -40,7 +40,7 @@
         }
         @if (alert.Status == "active")
         {
-            <a href="/Compose?alertId=@alert.AlertId" class="btn btn-ghost"><i class="bi bi-pencil"></i> Edit</a>
+            <a href="/Compose?domainId=@(alert.Domains.FirstOrDefault()?.DomainId)" class="btn btn-ghost"><i class="bi bi-pencil"></i> Edit</a>
             <form method="post" asp-page-handler="Clear" style="display:inline;"
                   onsubmit="return confirm('Clear this alert? The banner will be removed from every domain.');">
                 <input type="hidden" name="alertId" value="@alert.AlertId" />

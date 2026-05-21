@@ -3,16 +3,15 @@
 @using SphereAlert.Pages
 @using SphereAlert.Models.AlertModels
 @{
-    ViewData["Title"] = Model.IsEdit ? "Edit Alert" : "New Alert";
+    ViewData["Title"] = "New Alert";
+    var domainsToShow = Model.SelectedDomainIds.Count > 0
+        ? Model.SelectedDomainIds
+        : new List<string> { string.Empty };
 }
 
 <div class="page-head">
-    <h1>@(Model.IsEdit ? "Edit Alert" : "Push a New Alert")</h1>
-    <p>
-        @(Model.IsEdit
-            ? "Update the level, slot, message, options, or end time. Changes are re-pushed to the alert's domains."
-            : "Pick a level and slot, write a message, choose the domains, and send.")
-    </p>
+    <h1>New Alert</h1>
+    <p>Pick a domain to load its live slots, then set and send any of the three alert slots.</p>
 </div>
 
 @if (!string.IsNullOrEmpty(Model.Error))
@@ -20,123 +19,51 @@
     <div class="notice notice-error">@Model.Error</div>
 }
 
-@if (!Model.IsEdit && Model.AllDomains.Count == 0)
+@if (Model.InstalledDomains.Count == 0)
 {
-    <div class="notice notice-info">
-        You have no domains yet. Add a <a href="/Providers">DNS provider</a> and
-        <a href="/Domains">import your domains</a> first.
+    <div class="card">
+        <div class="notice notice-info" style="margin:0;">
+            No domains have a verified <code>sphere-alert.js</code> install yet. Open
+            <a href="/Domains">Domains</a> and run <strong>Check script</strong> — only verified
+            domains can receive an alert.
+        </div>
     </div>
 }
-
-<form method="post">
-    <input type="hidden" asp-for="EditAlertId" />
-
-    <div class="card">
-        <h2><i class="bi bi-sliders"></i> Alert</h2>
-
-        <div style="display:flex; gap:18px; flex-wrap:wrap;">
-            <div class="form-row" style="flex:1; min-width:200px;">
-                <label for="Level">Level</label>
-                <select id="Level" asp-for="Level" class="form-select">
-                    @foreach (var lvl in AlertLevels.All)
-                    {
-                        <option value="@lvl" selected="@(Model.Level == lvl)">@PageHelpers.LevelLabel(lvl)</option>
-                    }
-                </select>
-            </div>
-            <div class="form-row" style="flex:1; min-width:200px;">
-                <label for="Slot">Slot</label>
-                <select id="Slot" asp-for="Slot" class="form-select" disabled="@Model.IsEdit">
-                    @for (int slot = 1; slot <= AlertLevels.SlotCount; slot++)
-                    {
-                        <option value="@slot" selected="@(Model.Slot == slot)">@AlertLevels.SlotLabel(slot)</option>
-                    }
-                </select>
-                @if (Model.IsEdit)
-                {
-                    <input type="hidden" asp-for="Slot" />
-                }
-            </div>
-        </div>
-
-        <div class="form-row">
-            <label for="Message">Message</label>
-            <textarea id="Message" asp-for="Message" class="form-control" rows="2"
-                      maxlength="@AlertLevels.MaxMessageLength" required>@Model.Message</textarea>
-            <div class="form-hint"><span id="charCount">0</span> / @AlertLevels.MaxMessageLength characters</div>
-        </div>
-
-        <div class="form-row">
-            <label>Options</label>
-            <label class="form-hint" style="display:flex; align-items:center; gap:8px; font-size:.9rem;">
-                <input type="checkbox" asp-for="Dismissable" /> Dismissable — visitors can close the banner
-            </label>
-            <label class="form-hint" style="display:flex; align-items:center; gap:8px; font-size:.9rem;">
-                <input type="checkbox" asp-for="ForceScroll" /> Force scroll-on-hover even when the message fits
-            </label>
-        </div>
-
-        <div class="form-row">
-            <label for="endAtInput">End time <span class="muted">(optional — your local time)</span></label>
-            <input type="datetime-local" id="endAtInput" class="form-control" style="max-width:280px;" />
-            <input type="hidden" asp-for="EndAtUtc" id="EndAtUtc" />
-            <div class="form-hint">Leave blank to keep the alert up until you clear it manually.</div>
-        </div>
-
-        <div class="form-row">
-            <label>Live preview</label>
-            <div id="bannerPreview" class="banner-preview lvl-info">
-                <span id="previewLabel" class="lvl-label lvl-info">Info</span>
-                <div id="previewMessage" style="flex:1;">(your message)</div>
-            </div>
-            <div class="form-hint">TXT record value: <code class="txt-value" id="txtValue"></code></div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2><i class="bi bi-globe2"></i> Domains</h2>
-
-        @if (Model.IsEdit)
-        {
-            <p class="muted text-small">Editing keeps the alert's original domains. To target different domains, push a new alert.</p>
-            <ul class="muted">
-                @foreach (var domain in Model.AllDomains.Where(d => Model.SelectedDomainIds.Contains(d.DomainId)))
-                {
-                    <li>@domain.Name <span class="text-small">· @AlertLevels.SlotLabel(Model.Slot)</span></li>
-                }
-            </ul>
-        }
-        else if (!Model.InstalledDomains.Any())
-        {
-            <div class="notice notice-info" style="margin:0;">
-                No domains have a verified <code>sphere-alert.js</code> install yet. Open
-                <a href="/Domains">Domains</a> and run <strong>Check script</strong> (or select domains
-                and use <strong>Check selected</strong>) — only domains where the script was detected
-                can receive an alert.
-            </div>
-        }
-        else
-        {
+else
+{
+    <form method="post">
+        <div class="card">
+            <h2><i class="bi bi-globe2"></i> Domains</h2>
             <p class="muted text-small">
-                Only domains with a verified script install are listed. The alert goes to every domain
-                below, at the slot chosen above.
+                The first domain loads its current alerts into the editors below. Add more with
+                <strong>+</strong> — each Send goes to every domain listed.
             </p>
-            <input type="search" id="domainSearch" class="form-control" style="max-width:360px; margin-bottom:10px;"
-                   placeholder="Filter domains…" autocomplete="off" />
             <div id="domainRows">
-                <div class="domain-row" style="display:flex; gap:8px; margin-bottom:8px;">
-                    <select name="SelectedDomainIds" class="form-select domain-select" style="max-width:420px;">
-                        <option value="">— select a domain —</option>
-                        @foreach (var domain in Model.InstalledDomains)
+                @for (int i = 0; i < domainsToShow.Count; i++)
+                {
+                    <div class="domain-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                        <select name="SelectedDomainIds" class="form-select domain-select" style="max-width:420px;">
+                            <option value="">— select a domain —</option>
+                            @foreach (var domain in Model.InstalledDomains)
+                            {
+                                <option value="@domain.DomainId" selected="@(domain.DomainId == domainsToShow[i])">
+                                    @domain.Name
+                                </option>
+                            }
+                        </select>
+                        @if (i == 0)
                         {
-                            <option value="@domain.DomainId">@domain.Name (@domain.ProviderDisplayName)</option>
+                            <span class="badge-pill badge-unknown" style="align-self:center;">primary</span>
                         }
-                    </select>
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="removeDomainRow(this)" title="Remove">&times;</button>
-                </div>
+                        else
+                        {
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="removeDomainRow(this)" title="Remove">&times;</button>
+                        }
+                    </div>
+                }
             </div>
             <button type="button" class="btn btn-sm btn-ghost" onclick="addDomainRow()">
-                <i class="bi bi-plus-lg"></i> Add another domain
+                <i class="bi bi-plus-lg"></i> Add domain
             </button>
 
             <template id="domainRowTemplate">
@@ -145,22 +72,61 @@
                         <option value="">— select a domain —</option>
                         @foreach (var domain in Model.InstalledDomains)
                         {
-                            <option value="@domain.DomainId">@domain.Name (@domain.ProviderDisplayName)</option>
+                            <option value="@domain.DomainId">@domain.Name</option>
                         }
                     </select>
                     <button type="button" class="btn btn-sm btn-secondary" onclick="removeDomainRow(this)" title="Remove">&times;</button>
                 </div>
             </template>
-        }
-    </div>
+        </div>
 
-    <div class="btn-row">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-send"></i> @(Model.IsEdit ? "Save & Re-push" : "Send Alert")
-        </button>
-        <a href="@(Model.IsEdit ? "/ActiveAlerts" : "/Dashboard")" class="btn btn-secondary">Cancel</a>
-    </div>
-</form>
+        @for (int i = 0; i < 3; i++)
+        {
+            int slot = i + 1;
+            var input = Model.Slots.Count > i ? Model.Slots[i] : new SlotInput();
+            <div class="card slot-editor" data-slot="@slot">
+                <h2><i class="bi bi-card-text"></i> <code>@(AlertLevels.SlotSubdomain(slot))</code></h2>
+
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+                    <select asp-for="Slots[i].Level" class="form-select slot-level" style="max-width:150px;">
+                        @foreach (var lvl in AlertLevels.All)
+                        {
+                            <option value="@lvl" selected="@(input.Level == lvl)">@PageHelpers.LevelLabel(lvl)</option>
+                        }
+                    </select>
+                    <label class="form-hint" style="display:flex; align-items:center; gap:6px; margin:0;">
+                        <input asp-for="Slots[i].Dismissable" class="slot-dismiss" /> Dismissable
+                    </label>
+                    <label class="form-hint" style="display:flex; align-items:center; gap:6px; margin:0;">
+                        <input asp-for="Slots[i].ForceScroll" class="slot-scroll" /> Scroll
+                    </label>
+                    <span class="form-hint" style="display:flex; align-items:center; gap:6px; margin:0;">
+                        Expires
+                        <input type="datetime-local" class="form-control slot-expire-local" style="max-width:210px;" />
+                    </span>
+                    <input type="hidden" asp-for="Slots[i].ExpireUtc" class="slot-expire-utc" />
+                </div>
+
+                <textarea asp-for="Slots[i].Message" class="form-control slot-message" rows="2"
+                          maxlength="@AlertLevels.MaxMessageLength"
+                          placeholder="Alert message (leave blank to skip this slot)">@input.Message</textarea>
+                <div class="form-hint"><span class="slot-charcount">0</span> / @AlertLevels.MaxMessageLength</div>
+
+                <div class="form-row" style="margin-top:10px;">
+                    <div class="banner-preview slot-preview lvl-info">
+                        <span class="lvl-label slot-preview-label lvl-info">Info</span>
+                        <div class="slot-preview-msg" style="flex:1;">(message)</div>
+                    </div>
+                    <div class="form-hint">TXT: <code class="txt-value slot-txt"></code></div>
+                </div>
+
+                <button type="submit" asp-page-handler="Send" name="slot" value="@slot" class="btn btn-primary">
+                    <i class="bi bi-send"></i> Send slot @slot
+                </button>
+            </div>
+        }
+    </form>
+}
 
 @section Scripts {
 <script>
@@ -173,83 +139,79 @@
     ];
     const LEVEL_INDEX = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
-    const levelSel = document.getElementById('Level');
-    const msgInput = document.getElementById('Message');
-    const dismissInput = document.getElementById('Dismissable');
-    const scrollInput = document.getElementById('ForceScroll');
-    const preview = document.getElementById('bannerPreview');
-    const previewLabel = document.getElementById('previewLabel');
-    const previewMessage = document.getElementById('previewMessage');
-    const txtValue = document.getElementById('txtValue');
-    const charCount = document.getElementById('charCount');
-
-    function refresh() {
-        const idx = LEVEL_INDEX[levelSel.value] ?? 0;
-        const lvl = LEVELS[idx];
-        const msg = msgInput.value.trim();
-        const d = (dismissInput && dismissInput.checked) ? 1 : 0;
-        const s = (scrollInput && scrollInput.checked) ? 1 : 0;
-
-        preview.className = 'banner-preview ' + lvl.cls;
-        preview.style.borderLeftColor = lvl.border;
-        previewLabel.className = 'lvl-label ' + lvl.cls;
-        previewLabel.textContent = lvl.label;
-        previewMessage.textContent = msg || '(your message)';
-        txtValue.textContent = JSON.stringify({ l: idx, m: msg, d: d, s: s });
-        charCount.textContent = msgInput.value.length;
-    }
-    levelSel.addEventListener('change', refresh);
-    msgInput.addEventListener('input', refresh);
-    if (dismissInput) dismissInput.addEventListener('change', refresh);
-    if (scrollInput) scrollInput.addEventListener('change', refresh);
-    refresh();
-
-    // Domain rows — add/remove dropdowns
     function addDomainRow() {
         const tpl = document.getElementById('domainRowTemplate');
         if (!tpl) return;
         document.getElementById('domainRows').appendChild(tpl.content.cloneNode(true));
-        filterDomainOptions(); // new row honors the current filter
     }
-    function removeDomainRow(btn) {
-        const rows = document.querySelectorAll('#domainRows .domain-row');
-        if (rows.length <= 1) {
-            btn.closest('.domain-row').querySelector('select').value = '';
-            return;
-        }
-        btn.closest('.domain-row').remove();
-    }
+    function removeDomainRow(btn) { btn.closest('.domain-row').remove(); }
 
-    // Domain filter — hides non-matching options in every domain dropdown as you type
-    const domainSearch = document.getElementById('domainSearch');
-    function filterDomainOptions() {
-        const t = domainSearch ? domainSearch.value.trim().toLowerCase() : '';
-        document.querySelectorAll('.domain-select').forEach(sel => {
-            Array.from(sel.options).forEach(opt => {
-                if (opt.value === '') return; // always keep the placeholder
-                opt.hidden = t !== '' && !opt.textContent.toLowerCase().includes(t);
-            });
-        });
-    }
-    if (domainSearch) domainSearch.addEventListener('input', filterDomainOptions);
-
-    // End time — the datetime-local field is the operator's LOCAL time. The browser
-    // converts it to UTC (it knows the real timezone; the server, in UTC, does not).
-    const endAtInput = document.getElementById('endAtInput');
-    const endAtUtc = document.getElementById('EndAtUtc');
-    function localInputFromUtc(iso) {
+    function localFromUtc(iso) {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return '';
         return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     }
-    function syncEndAtUtc() {
-        endAtUtc.value = endAtInput.value ? new Date(endAtInput.value).toISOString() : '';
-    }
-    if (endAtInput && endAtUtc) {
-        if (endAtUtc.value) endAtInput.value = localInputFromUtc(endAtUtc.value);
-        endAtInput.addEventListener('input', syncEndAtUtc);
-        endAtInput.addEventListener('change', syncEndAtUtc);
-        if (endAtInput.form) endAtInput.form.addEventListener('submit', syncEndAtUtc);
+
+    const domainRows = document.getElementById('domainRows');
+    if (domainRows) {
+        // Changing the first (primary) domain reloads with its live slot state.
+        const primary = domainRows.querySelector('.domain-select');
+        if (primary) primary.addEventListener('change', function () {
+            window.location = this.value
+                ? '/Compose?domainId=' + encodeURIComponent(this.value)
+                : '/Compose';
+        });
+
+        document.querySelectorAll('.slot-editor').forEach(function (ed) {
+            const level   = ed.querySelector('.slot-level');
+            const msg     = ed.querySelector('.slot-message');
+            const dismiss = ed.querySelector('.slot-dismiss');
+            const scroll  = ed.querySelector('.slot-scroll');
+            const expLoc  = ed.querySelector('.slot-expire-local');
+            const expUtc  = ed.querySelector('.slot-expire-utc');
+            const preview = ed.querySelector('.slot-preview');
+            const pLabel  = ed.querySelector('.slot-preview-label');
+            const pMsg    = ed.querySelector('.slot-preview-msg');
+            const txt     = ed.querySelector('.slot-txt');
+            const count   = ed.querySelector('.slot-charcount');
+
+            function refresh() {
+                const idx = LEVEL_INDEX[level.value] ?? 0;
+                const lvl = LEVELS[idx];
+                const m = msg.value.trim();
+                const d = dismiss.checked ? 1 : 0;
+                const s = scroll.checked ? 1 : 0;
+                preview.className = 'banner-preview slot-preview ' + lvl.cls;
+                preview.style.borderLeftColor = lvl.border;
+                pLabel.className = 'lvl-label slot-preview-label ' + lvl.cls;
+                pLabel.textContent = lvl.label;
+                pMsg.textContent = m || '(message)';
+                txt.textContent = JSON.stringify({ l: idx, m: m, d: d, s: s });
+                count.textContent = msg.value.length;
+            }
+            function syncExpire() {
+                expUtc.value = expLoc.value ? new Date(expLoc.value).toISOString() : '';
+            }
+
+            level.addEventListener('change', refresh);
+            msg.addEventListener('input', refresh);
+            dismiss.addEventListener('change', refresh);
+            scroll.addEventListener('change', refresh);
+            expLoc.addEventListener('input', syncExpire);
+            expLoc.addEventListener('change', syncExpire);
+
+            if (expUtc.value) expLoc.value = localFromUtc(expUtc.value);
+            refresh();
+        });
+
+        const form = document.querySelector('form');
+        if (form) form.addEventListener('submit', function () {
+            document.querySelectorAll('.slot-editor').forEach(function (ed) {
+                const el = ed.querySelector('.slot-expire-local');
+                const eu = ed.querySelector('.slot-expire-utc');
+                eu.value = el.value ? new Date(el.value).toISOString() : '';
+            });
+        });
     }
 </script>
 }
