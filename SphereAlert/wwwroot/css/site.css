@@ -43,7 +43,7 @@ html, body {
 }
 
 .brand {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 10px;
     color: #fff;
@@ -51,7 +51,8 @@ html, body {
     font-weight: 600;
 }
 .brand i { color: #11b0fa; font-size: 1.6rem; }
-.brand strong { font-weight: 800; }
+.brand strong { font-weight: 800;padding: 0; letter-spacing: normal;}
+.brand .inline-logo { height: 1.2em; width: auto; display: inline-block; vertical-align: middle;}
 
 .top-bar-icons {
     display: flex;
@@ -148,10 +149,7 @@ html, body {
     opacity: 0.85;
 }
 
-.brand strong {
-    padding: 0;
-    letter-spacing: normal;
-}
+
 
 /* ---- Page furniture ----------------------------------------------------- */
 
