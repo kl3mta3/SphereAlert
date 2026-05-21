@@ -77,8 +77,9 @@
         </div>
 
         <div class="form-row">
-            <label for="EndAtLocal">End time <span class="muted">(optional — your local time)</span></label>
-            <input type="datetime-local" id="EndAtLocal" asp-for="EndAtLocal" class="form-control" style="max-width:280px;" />
+            <label for="endAtInput">End time <span class="muted">(optional — your local time)</span></label>
+            <input type="datetime-local" id="endAtInput" class="form-control" style="max-width:280px;" />
+            <input type="hidden" asp-for="EndAtUtc" id="EndAtUtc" />
             <div class="form-hint">Leave blank to keep the alert up until you clear it manually.</div>
         </div>
 
@@ -231,5 +232,24 @@
         });
     }
     if (domainSearch) domainSearch.addEventListener('input', filterDomainOptions);
+
+    // End time — the datetime-local field is the operator's LOCAL time. The browser
+    // converts it to UTC (it knows the real timezone; the server, in UTC, does not).
+    const endAtInput = document.getElementById('endAtInput');
+    const endAtUtc = document.getElementById('EndAtUtc');
+    function localInputFromUtc(iso) {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+    function syncEndAtUtc() {
+        endAtUtc.value = endAtInput.value ? new Date(endAtInput.value).toISOString() : '';
+    }
+    if (endAtInput && endAtUtc) {
+        if (endAtUtc.value) endAtInput.value = localInputFromUtc(endAtUtc.value);
+        endAtInput.addEventListener('input', syncEndAtUtc);
+        endAtInput.addEventListener('change', syncEndAtUtc);
+        if (endAtInput.form) endAtInput.form.addEventListener('submit', syncEndAtUtc);
+    }
 </script>
 }

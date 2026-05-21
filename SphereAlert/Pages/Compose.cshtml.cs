@@ -25,7 +25,11 @@ namespace SphereAlert.Pages
         [BindProperty] public int Slot { get; set; } = 1;
 
         [BindProperty] public string Message { get; set; } = string.Empty;
-        [BindProperty] public string? EndAtLocal { get; set; }
+
+        /// <summary>End time as a UTC ISO-8601 string. The browser converts the
+        /// operator's local datetime-local input to UTC before posting.</summary>
+        [BindProperty] public string? EndAtUtc { get; set; }
+
         [BindProperty] public bool Dismissable { get; set; } = true;
         [BindProperty] public bool ForceScroll { get; set; }
 
@@ -61,7 +65,7 @@ namespace SphereAlert.Pages
                 Message = alert.Message;
                 Dismissable = alert.Dismissable;
                 ForceScroll = alert.ForceScroll;
-                EndAtLocal = alert.EndAt?.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
+                EndAtUtc = alert.EndAt?.ToString("o");
                 SelectedDomainIds = alert.Domains.Select(d => d.DomainId).ToList();
                 Slot = alert.Domains.FirstOrDefault()?.Slot ?? 1;
             }
@@ -98,15 +102,20 @@ namespace SphereAlert.Pages
                 return Page();
             }
 
+            // The browser posts EndAtUtc already converted to UTC (it knows the
+            // operator's real timezone; the server does not).
             DateTime? endAtUtc = null;
-            if (!string.IsNullOrWhiteSpace(EndAtLocal))
+            if (!string.IsNullOrWhiteSpace(EndAtUtc))
             {
-                if (!DateTime.TryParse(EndAtLocal, out var parsedLocal))
+                if (!DateTime.TryParse(EndAtUtc, null,
+                        System.Globalization.DateTimeStyles.AdjustToUniversal
+                        | System.Globalization.DateTimeStyles.AssumeUniversal,
+                        out var parsedUtc))
                 {
                     Error = "End time is not a valid date/time.";
                     return Page();
                 }
-                endAtUtc = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Local).ToUniversalTime();
+                endAtUtc = DateTime.SpecifyKind(parsedUtc, DateTimeKind.Utc);
                 if (endAtUtc <= DateTime.UtcNow)
                 {
                     Error = "End time must be in the future.";
