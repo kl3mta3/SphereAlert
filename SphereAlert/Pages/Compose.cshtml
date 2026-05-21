@@ -85,7 +85,7 @@ else
             int slot = i + 1;
             var input = Model.Slots.Count > i ? Model.Slots[i] : new SlotInput();
             <div class="card slot-editor" data-slot="@slot">
-                <h2><i class="bi bi-card-text"></i> Slot @slot — <code>@(AlertLevels.SlotSubdomain(slot))</code></h2>
+                <h2><i class="bi bi-card-text"></i><code>@(AlertLevels.SlotSubdomain(slot))</code></h2>
 
                 <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
                     <select asp-for="Slots[i].Level" class="form-select slot-level" style="max-width:150px;">
