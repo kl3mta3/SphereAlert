@@ -69,11 +69,11 @@ volumes:
 
 The database, the encryption keyfile, and logs live in the **named volume
 `spherealert-data`**, mounted at `/data`. It is created automatically and is kept across
-rebuilds and redeploys — Docker (and PaaS platforms like Coolify) preserve named volumes
-declared in the compose file. Don't hardcode `container_name`, and don't use a bind mount
-to a path inside the repo — a redeploy that re-clones the repo would wipe it.
+rebuilds and redeploys. Docker preserve named volumes declared in the compose file.
+Don't hardcode `container_name`, and don't use a bind mount
+to a path inside the repo, a redeploy that re-clones the repo would wipe it.
 
-> Deploying with **Coolify**: use the *Docker Compose* build pack and point it at
+> Deploying with **Coolify**?: use the *Docker Compose* build pack and point it at
 > `docker-compose.yaml`. The `spherealert-data` volume appears under the app's
 > **Persistent Storage** tab and survives every redeploy.
 
@@ -192,4 +192,4 @@ SphereAlert/
 
 [MIT](LICENSE) © 2026 Kenneth Lasyone
 
-Part of the Sphere family of self-hosted, operator-owned infrastructure tools.
+Part of the Sphere family of self-hosted infrastructure tools.
