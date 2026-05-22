@@ -3,20 +3,20 @@
 **Push site-wide alert banners to any number of websites by changing one DNS record.**
 
 SphereAlert is a self-hosted, Dockerized web app for operators who need to put a banner
-on their sites — maintenance windows, incidents, notices — without redeploying anything.
+on their sites: maintenance windows, incidents, notices; without redeploying anything.
 You manage alerts from one dashboard; SphereAlert writes a TXT record to each domain's
 DNS provider, and a tiny client script on each site reads that record and renders the
 banner. Your DNS API keys never leave your box, and SphereAlert never phones home.
 
 It is the sibling product to [SphereSSL](https://github.com/kl3mta3/SphereSSL) — same
-stack, same conventions, same operator-owned philosophy.
+stack, same conventions, same self-hosted philosophy.
 
 ---
 
 ## How it works
 
 1. You run SphereAlert as a container and add your DNS provider credentials.
-2. On each site, you drop in `sphere-alert.js` and one `<script>` tag, or a combined `<script>` to also grab it.
+2. Just add `<script src="https://cdn.jsdelivr.net/gh/kl3mta3/SphereAlert@main/js/sphere-alert.js"></script>` to the `<head></head>` of pages you want to show alerts.
 
 1. To raise an alert: pick the domains, a level, and a slot, type a message, hit **Send**.
 2. SphereAlert writes a TXT record at `alert.<domain>` (or `alert2`/`alert3`) — a small
