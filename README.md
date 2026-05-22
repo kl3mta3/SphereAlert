@@ -8,7 +8,7 @@ You manage alerts from one dashboard; SphereAlert writes a TXT record to each do
 DNS provider, and a tiny client script on each site reads that record and renders the
 banner. Your DNS API keys never leave your box, and SphereAlert never phones home.
 
-It is the sibling product to [SphereSSL](https://github.com/kl3mta3/SphereSSL) — same
+It is the sibling product to [SphereSSL](https://github.com/kl3mta3/SphereSSL). Same
 stack, same conventions, same self-hosted philosophy.
 
 ---
