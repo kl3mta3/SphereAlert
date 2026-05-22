@@ -129,11 +129,11 @@ expiry is recorded in **History**.
 
 The banners only render once `sphere-alert.js` is on the site:
 
-- **Auto:** On your site, add `<script src="https://cdn.jsdelivr.net/gh/kl3mta3/SphereAlert@main/js/sphere-alert.js"></script>` inside `<head>`.
+- **Auto:** On your site, add `<script src="https://cdn.jsdelivr.net/gh/kl3mta3/SphereAlert@main/js/sphere-alert.js"></script>` inside `<head></head>`.
 
 - **Manual:** download it from `http://<host>:7227/js/sphere-alert.js` or the git, place it at
   `js/sphere-alert.js` on your site, and add
-  `<script src="/js/sphere-alert.js" defer></script>` inside `<head>`.
+  `<script src="/js/sphere-alert.js" defer></script>` inside `<head></head>`.
   
 - **Zip injection** (*Install* page): upload your site's build `.zip`; SphereAlert adds
   the tag to every HTML file and drops the script into a `js/` folder, then hands back a
