@@ -16,11 +16,12 @@ stack, same conventions, same operator-owned philosophy.
 ## How it works
 
 1. You run SphereAlert as a container and add your DNS provider credentials.
-2. On each site, you drop in `sphere-alert.js` and one `<script>` tag.
-3. To raise an alert: pick the domains, a level, and a slot, type a message, hit **Send**.
-4. SphereAlert writes a TXT record at `alert.<domain>` (or `alert2`/`alert3`) — a small
+2. On each site, you drop in `sphere-alert.js` and one `<script>` tag, or a combined `<script>` to also grab it.
+
+1. To raise an alert: pick the domains, a level, and a slot, type a message, hit **Send**.
+2. SphereAlert writes a TXT record at `alert.<domain>` (or `alert2`/`alert3`) — a small
    JSON payload — to every selected domain's provider, in parallel.
-5. Visitors' browsers read that record over DNS-over-HTTPS on each page load and render
+3. Visitors' browsers read that record over DNS-over-HTTPS on each page load and render
    the banner. A background scheduler clears alerts that have an end time.
 
 ```
@@ -128,9 +129,12 @@ expiry is recorded in **History**.
 
 The banners only render once `sphere-alert.js` is on the site:
 
-- **Manual:** download it from `http://<host>:7227/js/sphere-alert.js`, place it at
+- **Auto:** On your site, add `<script src="https://cdn.jsdelivr.net/gh/kl3mta3/SphereAlert@main/js/sphere-alert.js"></script>` inside `<head>`.
+
+- **Manual:** download it from `http://<host>:7227/js/sphere-alert.js` or the git, place it at
   `js/sphere-alert.js` on your site, and add
   `<script src="/js/sphere-alert.js" defer></script>` inside `<head>`.
+  
 - **Zip injection** (*Install* page): upload your site's build `.zip`; SphereAlert adds
   the tag to every HTML file and drops the script into a `js/` folder, then hands back a
   repackaged `.zip`.
