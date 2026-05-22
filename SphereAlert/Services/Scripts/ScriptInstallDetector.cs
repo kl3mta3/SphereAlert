@@ -1,16 +1,26 @@
+using System.Text.RegularExpressions;
 using SphereAlert.Services.Config;
 
 namespace SphereAlert.Services.Scripts
 {
     /// <summary>
     /// Best-effort detection of whether sphere-alert.js is installed on a domain.
-    /// Fetches https://&lt;domain&gt;/sphere-alert.js and checks for a 200 plus a
-    /// recognizable signature. Detection never blocks: any failure yields "unknown".
+    /// Two install styles are recognized:
+    ///   1. Self-hosted — the file served from &lt;domain&gt;/js/sphere-alert.js.
+    ///   2. CDN embed   — a &lt;script&gt; tag on the homepage whose src points at
+    ///      sphere-alert.js on any host (e.g. jsDelivr).
+    /// Detection never blocks: any failure yields "unknown".
     /// </summary>
     public class ScriptInstallDetector
     {
         // A distinctive string from the top of sphere-alert.js — survives minor edits.
         private const string Signature = "DNS-driven alert banner";
+
+        // Matches a <script ... src="...sphere-alert.js..."> tag in page HTML,
+        // regardless of which host serves the file.
+        private static readonly Regex ScriptTagPattern = new(
+            "<script\\b[^>]*\\bsrc\\s*=\\s*[\"'][^\"']*sphere-alert\\.js[^\"']*[\"']",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private readonly Logger _logger;
 
@@ -19,8 +29,8 @@ namespace SphereAlert.Services.Scripts
             _logger = logger;
         }
 
-        // Where the script may live. The documented location is /js/sphere-alert.js;
-        // the root path is checked as a fallback for older installs.
+        // Where the file may be self-hosted. The documented location is
+        // /js/sphere-alert.js; the root path is a fallback for older installs.
         private static readonly string[] CandidatePaths = { "js/sphere-alert.js", "sphere-alert.js" };
 
         /// <summary>Returns "installed", "missing", or "unknown".</summary>
@@ -31,6 +41,7 @@ namespace SphereAlert.Services.Scripts
 
             bool siteResponded = false;
 
+            // 1. Self-hosted: the script file served straight from the domain.
             foreach (var path in CandidatePaths)
             {
                 try
@@ -49,6 +60,24 @@ namespace SphereAlert.Services.Scripts
                 {
                     _ = _logger.Debug($"Script detection for {domain}/{path} was inconclusive: {ex.Message}");
                 }
+            }
+
+            // 2. CDN embed: a <script src="...sphere-alert.js"> tag in the homepage.
+            try
+            {
+                var response = await client.GetAsync($"https://{domain}/");
+                siteResponded = true;
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var html = await response.Content.ReadAsStringAsync();
+                    if (ScriptTagPattern.IsMatch(html))
+                        return "installed";
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _logger.Debug($"Script detection for {domain} homepage was inconclusive: {ex.Message}");
             }
 
             // The site answered but the script was not found anywhere → missing.
