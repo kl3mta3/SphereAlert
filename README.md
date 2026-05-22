@@ -9,7 +9,8 @@ DNS provider, and a tiny client script on each site reads that record and render
 banner. Your DNS API keys never leave your box, and SphereAlert never phones home.
 
 Sibling product to [SphereSSL](https://github.com/kl3mta3/SphereSSL). Same
-stack, same conventions, same self-hosted philosophy. (Need to manage and auto-renew your own SSL certs? Check it out.)
+stack, same conventions, same self-hosted philosophy.<br>
+(Need to manage and auto-renew your own SSL certs? Check it out.)
 
 ---
 
